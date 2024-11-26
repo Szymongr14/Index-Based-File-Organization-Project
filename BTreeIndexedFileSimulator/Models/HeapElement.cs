@@ -1,5 +1,5 @@
 using MemoryPageAccessSimulator.Models;
 
-namespace ExternalMergeSortSimulator.Models;
+namespace BTreeIndexedFileSimulator.Models;
 
 public record HeapElement(Record Record, int PageNumber);

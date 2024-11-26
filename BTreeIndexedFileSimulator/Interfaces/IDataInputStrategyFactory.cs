@@ -1,4 +1,4 @@
-namespace ExternalMergeSortSimulator.Interfaces;
+namespace BTreeIndexedFileSimulator.Interfaces;
 
 public interface IDatasetInputStrategyFactory
 {

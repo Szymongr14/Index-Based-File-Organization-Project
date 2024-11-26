@@ -1,8 +1,7 @@
-using ExternalMergeSortSimulator.Interfaces;
+using BTreeIndexedFileSimulator.Interfaces;
 using MemoryPageAccessSimulator.Models;
-using Microsoft.Extensions.Logging;
 
-namespace ExternalMergeSortSimulator.DataInputStrategies;
+namespace BTreeIndexedFileSimulator.DataInputStrategies;
 
 public class RandomDataInput : IDatasetInputStrategy
 {
@@ -17,11 +16,11 @@ public class RandomDataInput : IDatasetInputStrategy
     {
         var records = new List<Record>();
         var random = new Random();
-        for (var i = 0; i < _appSettings.NumberOfRecordsToGenerate; i++)
+        for (uint i = 0; i < _appSettings.NumberOfRecordsToGenerate; i++)
         {
             var x = random.NextDouble() * 100;
             var y = random.NextDouble() * 100;
-            records.Add(new Record(x, y, i));
+            records.Add(new Record(x, y, i+1));
         }
 
         return records;

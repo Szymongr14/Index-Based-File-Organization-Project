@@ -2,12 +2,35 @@ namespace MemoryPageAccessSimulator.Models;
 
 public class RAM
 {
-    public int MaxNumberOfPages { get; init; }
-    public List<Page> Pages { get; set; }
+    private readonly AppSettings _appSettings;
+    private Dictionary<int, object> cache;
+    private int maxPages;
 
     public RAM(AppSettings appSettings)
     {
-        MaxNumberOfPages = appSettings.RAMSizeInNumberOfPages;
-        Pages = new List<Page>(MaxNumberOfPages);
+        cache = new Dictionary<int, object>();
+        _appSettings = appSettings;
+        maxPages = appSettings.RAMSizeInNumberOfPages;
+    }
+
+    public object GetPage(int pageID)
+    {
+        cache.TryGetValue(pageID, out var page);
+        return page;
+    }
+
+    public void AddPage(int pageID, object page)
+    {
+        if (cache.Count >= maxPages)
+        {
+            RemoveOldestPage();
+        }
+        cache[pageID] = page;
+    }
+
+    private void RemoveOldestPage()
+    {
+        var oldestKey = cache.Keys.First();
+        cache.Remove(oldestKey);
     }
 }

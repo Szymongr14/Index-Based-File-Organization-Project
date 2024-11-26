@@ -1,7 +1,7 @@
-using ExternalMergeSortSimulator.Interfaces;
+using BTreeIndexedFileSimulator.Interfaces;
 using MemoryPageAccessSimulator.Models;
 
-namespace ExternalMergeSortSimulator.DataInputStrategies;
+namespace BTreeIndexedFileSimulator.DataInputStrategies;
 
 public class ManualDataInput : IDatasetInputStrategy
 {
@@ -17,8 +17,9 @@ public class ManualDataInput : IDatasetInputStrategy
         var records = new List<Record>();
         for (var i = 0; i < _appSettings.NumberOfRecordsToGenerate; i++)
         {
+            //TODO: handle case when key already exist in dataset
             Console.WriteLine("Enter Key:");
-            var key = int.Parse(Console.ReadLine() ?? string.Empty);
+            var key = uint.Parse(Console.ReadLine() ?? string.Empty);
             Console.WriteLine("Enter X:");
             var x = double.Parse(Console.ReadLine() ?? string.Empty);
             Console.WriteLine("Enter Y:");

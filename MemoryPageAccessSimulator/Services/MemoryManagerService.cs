@@ -8,7 +8,7 @@ public class MemoryManagerService : IMemoryManagerService
     private readonly AppSettings _appSettings;
     private RAM _ram;
     private int PageSizeInBytes { get; init; }
-    public int PageSizeInNumberOfRecords { get; init; }
+    private uint PageSizeInNumberOfRecords { get; init; }
     public PageIOStatistics PageIOStatistics { get; init; } = new();
 
     
@@ -17,161 +17,112 @@ public class MemoryManagerService : IMemoryManagerService
         _appSettings = appSettings;
         _ram = new RAM(appSettings);
         PageSizeInBytes = appSettings.PageSizeInNumberOfRecords * appSettings.RecordSizeInBytes;
-        PageSizeInNumberOfRecords = appSettings.PageSizeInNumberOfRecords;
+        PageSizeInNumberOfRecords = (uint)appSettings.PageSizeInNumberOfRecords;
     }
     
-    public void WriteInitialRecordsToBinaryFile(IEnumerable<Record> records, string filePath)
+    public byte[] SerializeRecordsPage(RecordsPage page)
     {
-        using var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write);
-        using var writer = new BinaryWriter(fileStream);
-        foreach (var record in records)
-        {
-            writer.Write(record.X);
-            writer.Write(record.Y);
-            writer.Write(record.Key);
-        }
-        writer.Close();
-    }
+        using var ms = new MemoryStream();
+        using var writer = new BinaryWriter(ms);
+        writer.Write(page.PageID.ToByteArray());
+        writer.Write(page.Records.Count);
 
-    public void WritePageToTape(Page page, string filePath)
-    {
-        using var fileStream = new FileStream(filePath, FileMode.OpenOrCreate, FileAccess.Write);
-    
-        fileStream.Seek(0, SeekOrigin.End);
-
-        using var writer = new BinaryWriter(fileStream);
         foreach (var record in page.Records)
         {
+            writer.Write(record.Key);
             writer.Write(record.X);
             writer.Write(record.Y);
-            writer.Write(record.Key);
         }
-        PageIOStatistics.IncrementWrite();
-    }
 
-    
-    public void InsertPageIntoRAM(Page page)
-    {
-        _ram.Pages.Add(page);
+        return ms.ToArray();
     }
     
-    public void InsertPageIntoRAMAtGivenIndex(Page page, int index)
+    public byte[] SerializeBTreeNodePage(BTreeNodePage node)
     {
-        _ram.Pages[index] = page;
-    }
-    
-    public void RemovePageFromRAM(int pageNumber)
-    {
-        _ram.Pages.RemoveAt(pageNumber);
-    }
+        using var ms = new MemoryStream();
+        using var writer = new BinaryWriter(ms);
+        writer.Write(node.PageID.ToByteArray());
+        writer.Write(node.IsLeaf);
+        writer.Write(node.Keys.Count);
 
-    public Page GetLastPageFromRAM()
-    {
-        return _ram.Pages[^1];
+        foreach (var key in node.Keys)
+        {
+            writer.Write(key);
+        }
+
+        foreach (var address in node.Addresses)
+        {
+            writer.Write(address.pageID);
+            writer.Write(address.offset);
+        }
+
+        if (node.IsLeaf) return ms.ToArray();
+        foreach (var childPointer in node.ChildPointers)
+        {
+            writer.Write(childPointer);
+        }
+
+        return ms.ToArray();
     }
     
-    public void RemoveLastPageFromRAM()
+    public RecordsPage DeserializeRecordsPage(byte[] data)
     {
-        _ram.Pages.RemoveAt(_ram.Pages.Count - 1);
-    }
+        using var ms = new MemoryStream(data);
+        using var reader = new BinaryReader(ms);
+        var pageID = new Guid(reader.ReadBytes(16));
+        var page = new RecordsPage(pageID);
 
-    public Page GetPageFromRAM(int pageNumber)
-    {
-        var page = _ram.Pages[pageNumber];
+        var recordCount = reader.ReadInt32();
+        for (var i = 0; i < recordCount; i++)
+        {
+            var key = reader.ReadUInt32();
+            var x = reader.ReadDouble();
+            var y = reader.ReadDouble();
+                
+            page.Records.Add(new Record(x, y, key));
+        }
+
         return page;
     }
     
-    public bool RAMIsFull()
+    public BTreeNodePage DeserializeBTreeNodePage(byte[] data)
     {
-        return _ram.Pages.Count == _ram.MaxNumberOfPages;
-    }
-
-    public List<Record> GetRecordsFromRAM()
-    {
-        var records = new List<Record>();
-        foreach (var page in _ram.Pages)
-        {
-            records.AddRange(page.Records);
-        }
-
-        return records;
-    }
-    
-    public Record GetFirstRecordFromGivenPage(int pageNumber)
-    {
-        return _ram.Pages[pageNumber].Records.First();
-    }
-    
-    public void RemoveFirstRecordFromGivenPage(int pageNumber)
-    {
-        _ram.Pages[pageNumber].Records.RemoveFirst();
-    }
-    
-    public void WriteRecordsToRAM(List<Record> records)
-    {
-        var requiredPages = (int)Math.Ceiling((double)records.Count / PageSizeInNumberOfRecords);
-    
-        ClearRAMPages();
-        for (var i = 0; i < requiredPages; i++)
-        {
-            _ram.Pages.Add(new Page(PageSizeInNumberOfRecords));
-        }
-
-        var pageNumber = 0;
-        var recordIndex = 0;
-        foreach (var record in records)
-        {
-            if (recordIndex > 0 && recordIndex % PageSizeInNumberOfRecords == 0)
-            {
-                pageNumber++;
-            }
+        using var ms = new MemoryStream(data);
+        using var reader = new BinaryReader(ms);
         
-            _ram.Pages[pageNumber].AddRecord(record);
-            recordIndex++;
-        }
-    }
-    
-    public bool PageIsEmpty(int pageNumber)
-    {
-        return _ram.Pages[pageNumber].IsEmpty();
-    }
+        var pageID = new Guid(reader.ReadBytes(16));
+        var isLeaf = reader.ReadBoolean();
+        var node = new BTreeNodePage(pageID, isLeaf);
 
-    public bool RAMIsEmpty()
-    {
-        return _ram.Pages.Count == 0;
-    }
-
-    public void InitializeEmptyPagesInRAM()
-    {
-        for (var i = 0; i < _ram.MaxNumberOfPages; i++)
+        var keyCount = reader.ReadInt32();
+        for (var i = 0; i < keyCount; i++)
         {
-            _ram.Pages.Add(new Page(PageSizeInNumberOfRecords));
+            node.Keys.Add(reader.ReadUInt32());
         }
+
+        var addressCount = reader.ReadInt32();
+        for (var i = 0; i < addressCount; i++)
+        {
+            var page = reader.ReadUInt32();
+            var offset = reader.ReadUInt32();
+            node.Addresses.Add((page, offset));
+        }
+
+        if (isLeaf) return node;
+        
+        var childPointerCount = keyCount + 1;
+        for (var i = 0; i < childPointerCount; i++)
+        {
+            node.ChildPointers.Add(reader.ReadUInt32());
+        }
+
+        return node;
     }
     
-    public void MoveRecordToPage(int pageNumber, Record record)
+    public void SavePageToFile(byte[] pageAsByteStream, Guid pageID)
     {
-        _ram.Pages[pageNumber].AddRecord(record);
+        var filePath = $"Disk/{pageID.ToString()}.bin";
+        File.WriteAllBytes(filePath, pageAsByteStream);
     }
     
-    public void ClearRAMPages()
-    {
-        _ram.Pages.Clear();
-    }
-    
-    public int GetMaxPageOffsetForFile(string filePath)
-    {
-        using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-        return (int)Math.Ceiling((double)fileStream.Length / PageSizeInBytes);
-    }
-    
-    public (int totalReads, int totalWrites) GetTotalReadsAndWrites()
-    {
-        return (PageIOStatistics.TotalReads, PageIOStatistics.TotalWrites);
-    }
-    
-    public void ClearPage(int pageNumber)
-    {
-        _ram.Pages[pageNumber].ClearPage();
-    }
 }

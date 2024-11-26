@@ -1,7 +1,7 @@
-using ExternalMergeSortSimulator.Interfaces;
+using BTreeIndexedFileSimulator.Interfaces;
 using MemoryPageAccessSimulator.Models;
 
-namespace ExternalMergeSortSimulator.DataInputStrategies;
+namespace BTreeIndexedFileSimulator.DataInputStrategies;
 
 public class FileDataInput : IDatasetInputStrategy
 {
@@ -21,7 +21,7 @@ public class FileDataInput : IDatasetInputStrategy
             var parts = line.Split(',');
             var x = double.Parse(parts[0]);
             var y = double.Parse(parts[1]);
-            var key = int.Parse(parts[2]);
+            var key = uint.Parse(parts[2]);
             
             records.Add(new Record(x, y, key));
         }

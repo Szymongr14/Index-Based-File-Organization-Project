@@ -1,13 +1,13 @@
-﻿using ExternalMergeSortSimulator.Factories;
-using ExternalMergeSortSimulator.Interfaces;
-using ExternalMergeSortSimulator.Validators;
+﻿using BTreeIndexedFileSimulator.Factories;
+using BTreeIndexedFileSimulator.Interfaces;
+using BTreeIndexedFileSimulator.Validators;
+using MemoryPageAccessSimulator;
 using MemoryPageAccessSimulator.Models;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using MemoryPageAccessSimulator;
 
-namespace ExternalMergeSortSimulator;
+namespace BTreeIndexedFileSimulator;
 
 public abstract class Program
 {
@@ -35,8 +35,8 @@ public abstract class Program
         logger.LogInformation("Application started successfully.");
         
         // Start the application
-        var externalMergeSortService = serviceProvider.GetRequiredService<ExternalMergeSortUsingLargeBuffersService>();
-        externalMergeSortService.Start();
+        var indexBasedFileSimulator = serviceProvider.GetRequiredService<IndexBasedFileSimulator>();
+        indexBasedFileSimulator.Start();
         logger.LogInformation("Application finished successfully. Records have been sorted!");
     }
     
@@ -53,7 +53,7 @@ public abstract class Program
             return factory.Create();
         });
         
-        services.AddTransient<ExternalMergeSortUsingLargeBuffersService>();
+        services.AddTransient<IndexBasedFileSimulator>();
         services.AddMemoryPageAccessSimulatorDependencies();
     }
 

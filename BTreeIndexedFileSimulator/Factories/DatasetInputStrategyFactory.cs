@@ -1,9 +1,8 @@
-using ExternalMergeSortSimulator.DataInputStrategies;
-using ExternalMergeSortSimulator.Interfaces;
+using BTreeIndexedFileSimulator.DataInputStrategies;
+using BTreeIndexedFileSimulator.Interfaces;
 using MemoryPageAccessSimulator.Models;
-using Microsoft.Extensions.Logging;
 
-namespace ExternalMergeSortSimulator.Factories;
+namespace BTreeIndexedFileSimulator.Factories;
 
 public class DatasetInputStrategyFactory : IDatasetInputStrategyFactory
 {

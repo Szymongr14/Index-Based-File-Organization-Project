@@ -1,15 +1,14 @@
+using FluentValidation;
 using MemoryPageAccessSimulator.Models;
 
-namespace ExternalMergeSortSimulator.Validators;
-
-using FluentValidation;
+namespace BTreeIndexedFileSimulator.Validators;
 
 public class AppSettingsValidator : AbstractValidator<AppSettings>
 {
     public AppSettingsValidator()
     {
-        RuleFor(x => x.PageSizeInNumberOfRecords)
-            .NotEmpty().GreaterThan(0).WithMessage("PageSizeInNumberOfRecords must be greater than 0.");
+        RuleFor(x => x.RAMSizeInNumberOfPages)
+            .NotEmpty().GreaterThan(2).WithMessage("RAMSizeInNumberOfPages must be greater than 2.");
         
         RuleFor(x => x.PageSizeInNumberOfRecords)
             .NotEmpty().GreaterThan(0).WithMessage("PageSizeInNumberOfRecords must be greater than 0.");
@@ -29,7 +28,7 @@ public class AppSettingsValidator : AbstractValidator<AppSettings>
         
         RuleFor(x => x.FilePathToInstructions)
             .NotEmpty()
-            .WithMessage("FilePath is required when DataSource is 'LoadFromFile'.");
+            .WithMessage("FilePathToInstructions is required.");
         
         RuleFor(x => x.RecordSizeInBytes)
             .NotEmpty().GreaterThan(0).WithMessage("RecordSizeInBytes must be greater than 0.");
