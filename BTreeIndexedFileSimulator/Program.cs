@@ -1,10 +1,12 @@
 ﻿using BTreeIndexedFileSimulator.Factories;
 using BTreeIndexedFileSimulator.Interfaces;
+using BTreeIndexedFileSimulator.Services;
 using BTreeIndexedFileSimulator.Validators;
 using MemoryPageAccessSimulator;
 using MemoryPageAccessSimulator.Models;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 
 namespace BTreeIndexedFileSimulator;
@@ -53,8 +55,9 @@ public abstract class Program
             return factory.Create();
         });
         
-        services.AddTransient<IndexBasedFileSimulator>();
         services.AddMemoryPageAccessSimulatorDependencies();
+        services.AddTransient<IndexBasedFileSimulator>();
+        services.AddTransient<IBTreeDiskService, BTreeDiskService>();
     }
 
     private static void ValidateAppSettings(AppSettings settings, ILogger logger)

@@ -1,36 +1,30 @@
 namespace MemoryPageAccessSimulator.Models;
 
+using System.Collections;
+
 public class RAM
 {
     private readonly AppSettings _appSettings;
-    private Dictionary<int, object> cache;
-    private int maxPages;
+    private Dictionary<Guid, object> _cache;
+    private int _maxCachePages;
+    public BTreeNodePage? BTreeRootPage { get; set; }
+    public Stack<(Guid PageID, uint Offset)> FreeSlots;
 
     public RAM(AppSettings appSettings)
     {
-        cache = new Dictionary<int, object>();
         _appSettings = appSettings;
-        maxPages = appSettings.RAMSizeInNumberOfPages;
+        _maxCachePages = appSettings.RAMSizeInNumberOfPages - 2;
+        _cache = new Dictionary<Guid, object>();
     }
-
-    public object GetPage(int pageID)
+    
+    public void AddPageToCache(Guid pageID, object page)
     {
-        cache.TryGetValue(pageID, out var page);
-        return page;
-    }
-
-    public void AddPage(int pageID, object page)
-    {
-        if (cache.Count >= maxPages)
+        if (_cache.Count >= _maxCachePages)
         {
-            RemoveOldestPage();
+            var lruPageID = _cache.First().Key;
+            _cache.Remove(lruPageID);
         }
-        cache[pageID] = page;
-    }
 
-    private void RemoveOldestPage()
-    {
-        var oldestKey = cache.Keys.First();
-        cache.Remove(oldestKey);
+        _cache.Add(pageID, page);
     }
 }

@@ -15,7 +15,10 @@ public class MemoryManagerService : IMemoryManagerService
     public MemoryManagerService(AppSettings appSettings)
     {
         _appSettings = appSettings;
-        _ram = new RAM(appSettings);
+        _ram = new RAM(appSettings)
+        {
+            BTreeRootPage = null
+        };
         PageSizeInBytes = appSettings.PageSizeInNumberOfRecords * appSettings.RecordSizeInBytes;
         PageSizeInNumberOfRecords = (uint)appSettings.PageSizeInNumberOfRecords;
     }
@@ -37,7 +40,7 @@ public class MemoryManagerService : IMemoryManagerService
         return ms.ToArray();
     }
     
-    public byte[] SerializeBTreeNodePage(BTreeNodePage node)
+    public byte[] SerializeBTreeNodePage(BTreeNodePage? node)
     {
         using var ms = new MemoryStream();
         using var writer = new BinaryWriter(ms);
@@ -52,14 +55,14 @@ public class MemoryManagerService : IMemoryManagerService
 
         foreach (var address in node.Addresses)
         {
-            writer.Write(address.pageID);
+            writer.Write(address.pageID.ToByteArray());
             writer.Write(address.offset);
         }
 
         if (node.IsLeaf) return ms.ToArray();
         foreach (var childPointer in node.ChildPointers)
         {
-            writer.Write(childPointer);
+            writer.Write(childPointer.ToByteArray());
         }
 
         return ms.ToArray();
@@ -85,15 +88,17 @@ public class MemoryManagerService : IMemoryManagerService
         return page;
     }
     
-    public BTreeNodePage DeserializeBTreeNodePage(byte[] data)
+    public BTreeNodePage? DeserializeBTreeNodePage(byte[] data)
     {
         using var ms = new MemoryStream(data);
         using var reader = new BinaryReader(ms);
         
-        var pageID = new Guid(reader.ReadBytes(16));
+        var currentPageID = new Guid(reader.ReadBytes(16));
         var isLeaf = reader.ReadBoolean();
-        var node = new BTreeNodePage(pageID, isLeaf);
-
+        var isRoot = reader.ReadBoolean();
+        
+        var node = new BTreeNodePage(currentPageID, isLeaf, isRoot, _appSettings.TreeDegree);
+        
         var keyCount = reader.ReadInt32();
         for (var i = 0; i < keyCount; i++)
         {
@@ -103,9 +108,9 @@ public class MemoryManagerService : IMemoryManagerService
         var addressCount = reader.ReadInt32();
         for (var i = 0; i < addressCount; i++)
         {
-            var page = reader.ReadUInt32();
+            var pageID = reader.ReadBytes(16);
             var offset = reader.ReadUInt32();
-            node.Addresses.Add((page, offset));
+            node.Addresses.Add((new Guid(pageID), offset));
         }
 
         if (isLeaf) return node;
@@ -113,7 +118,7 @@ public class MemoryManagerService : IMemoryManagerService
         var childPointerCount = keyCount + 1;
         for (var i = 0; i < childPointerCount; i++)
         {
-            node.ChildPointers.Add(reader.ReadUInt32());
+            node.ChildPointers.Add(new Guid(reader.ReadBytes(16)));
         }
 
         return node;
@@ -124,5 +129,29 @@ public class MemoryManagerService : IMemoryManagerService
         var filePath = $"Disk/{pageID.ToString()}.bin";
         File.WriteAllBytes(filePath, pageAsByteStream);
     }
-    
+
+    public BTreeNodePage? GetRootPage()
+    {
+        return _ram.BTreeRootPage;
+    }
+
+    public void SetRootPage(BTreeNodePage? nodePage)
+    {
+        _ram.BTreeRootPage = nodePage;
+    }
+
+    public (Guid pageID, uint offset) GetFreeSpaceForRecord()
+    {
+        return _ram.FreeSlots.Count == 0 ? ((Guid pageID, uint offset))(Guid.Empty, 0) : _ram.FreeSlots.Pop();
+    }
+
+    public void InsertRecordToPage(RecordsPage page, Record record)
+    {
+        _ram.AddPageToCache(page.PageID, page);
+    }
+
+    public void AddFreeSpaceForRecord((Guid pageID, uint offset) freeSpace)
+    {
+        _ram.FreeSlots.Push(freeSpace);
+    }
 }

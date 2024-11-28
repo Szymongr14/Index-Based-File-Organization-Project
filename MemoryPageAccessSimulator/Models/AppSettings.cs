@@ -10,4 +10,5 @@ public class AppSettings
     public string LogLevel { get; init; } = null!;
    public string FilePathToRecords { get; init; } = null!;
    public string FilePathToInstructions { get; init; } = null!;
+   public int TreeDegree { get; init; }
 }
