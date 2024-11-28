@@ -1,7 +1,5 @@
 namespace MemoryPageAccessSimulator.Models;
 
-using System.Collections;
-
 public class RAM
 {
     private readonly AppSettings _appSettings;
@@ -15,6 +13,7 @@ public class RAM
         _appSettings = appSettings;
         _maxCachePages = appSettings.RAMSizeInNumberOfPages - 2;
         _cache = new Dictionary<Guid, object>();
+        BTreeRootPage = null;
     }
     
     public void AddPageToCache(Guid pageID, object page)

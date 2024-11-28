@@ -15,10 +15,7 @@ public class MemoryManagerService : IMemoryManagerService
     public MemoryManagerService(AppSettings appSettings)
     {
         _appSettings = appSettings;
-        _ram = new RAM(appSettings)
-        {
-            BTreeRootPage = null
-        };
+        _ram = new RAM(appSettings);
         PageSizeInBytes = appSettings.PageSizeInNumberOfRecords * appSettings.RecordSizeInBytes;
         PageSizeInNumberOfRecords = (uint)appSettings.PageSizeInNumberOfRecords;
     }
@@ -90,6 +87,7 @@ public class MemoryManagerService : IMemoryManagerService
     
     public BTreeNodePage? DeserializeBTreeNodePage(byte[] data)
     {
+        //TODO: optimize deserialization (unnecessary keyCount and addressCount, need to specify childs number)
         using var ms = new MemoryStream(data);
         using var reader = new BinaryReader(ms);
         
