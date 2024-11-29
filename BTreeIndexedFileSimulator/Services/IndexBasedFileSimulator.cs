@@ -59,6 +59,7 @@ public class IndexBasedFileSimulator
             var pageAsByteStream = _memoryManagerService.SerializeRecordsPage(page);
             _memoryManagerService.SavePageToFile(pageAsByteStream, page.PageID);
             _memoryManagerService.AddFreeSpaceForRecord((page.PageID, (uint)offsetInPage));
+            _bTreeDiskService.PrintBTree();
         }
     }
 }

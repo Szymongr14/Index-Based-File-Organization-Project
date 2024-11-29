@@ -151,8 +151,6 @@ public class BTreeDiskService : IBTreeDiskService
             node.ChildPointers.RemoveRange(midIndex + 1, node.ChildPointers.Count - midIndex - 1);
         }
 
-
-
         // Save the updated nodes to disk
         _memoryManagerService.SavePageToFile(
             _memoryManagerService.SerializeBTreeNodePage(node),
@@ -172,9 +170,37 @@ public class BTreeDiskService : IBTreeDiskService
         throw new NotImplementedException();
     }
 
-    public void PrintAllRecords()
+    public void PrintBTree()
     {
-        throw new NotImplementedException();
+        // Get the root node
+        var rootNode = _memoryManagerService.GetRootPage();
+
+        if (rootNode == null)
+        {
+            Console.WriteLine("The B-Tree is empty.");
+            return;
+        }
+
+        // Print the root node and recursively traverse the tree
+        PrintNode(rootNode.PageID, 0);
+    }
+    
+    private void PrintNode(Guid pageID, int level)
+    {
+        // Load the node from disk
+        var node = _memoryManagerService.DeserializeBTreeNodePage(File.ReadAllBytes($"Disk/{pageID}.bin"));
+
+        // Print the level and the keys in the node
+        Console.WriteLine($"{new string(' ', level * 2)}Level {level}, Page {pageID}: Keys = [{string.Join(", ", node.Keys)}]");
+
+        // If the node is not a leaf, print its children
+        if (!node.IsLeaf)
+        {
+            foreach (var childPageID in node.ChildPointers)
+            {
+                PrintNode(childPageID, level + 1); // Recursively print child nodes
+            }
+        }
     }
 
     public void PrintRecordsInOrder()

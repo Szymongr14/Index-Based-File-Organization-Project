@@ -9,7 +9,7 @@ public interface IBTreeDiskService
     // public void DeleteRecord(Record record);
     public Record FindRecord(Record record);
     // public void UpdateRecord(Record record);
-    public void PrintAllRecords();
+    public void PrintBTree();
     public void PrintRecordsInOrder();
     public void PrintRecordsByPage();
 

@@ -5,7 +5,7 @@ namespace MemoryPageAccessSimulator.Interfaces;
 public interface IMemoryManagerService
 {
 
-    public byte[] SerializeBTreeNodePage(BTreeNodePage? node);
+    public byte[] SerializeBTreeNodePage(BTreeNodePage node);
     public byte[] SerializeRecordsPage(RecordsPage page);
     public RecordsPage DeserializeRecordsPage(byte[] data);
     public BTreeNodePage? DeserializeBTreeNodePage(byte[] data);

@@ -14,6 +14,7 @@ public class RAM
         _maxCachePages = appSettings.RAMSizeInNumberOfPages - 2;
         _cache = new Dictionary<Guid, object>();
         BTreeRootPage = null;
+        FreeSlots = new Stack<(Guid PageID, uint Offset)>();
     }
     
     public void AddPageToCache(Guid pageID, object page)

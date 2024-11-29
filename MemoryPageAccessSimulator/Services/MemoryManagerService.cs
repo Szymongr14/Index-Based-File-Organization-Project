@@ -37,12 +37,13 @@ public class MemoryManagerService : IMemoryManagerService
         return ms.ToArray();
     }
     
-    public byte[] SerializeBTreeNodePage(BTreeNodePage? node)
+    public byte[] SerializeBTreeNodePage(BTreeNodePage node)
     {
         using var ms = new MemoryStream();
         using var writer = new BinaryWriter(ms);
         writer.Write(node.PageID.ToByteArray());
         writer.Write(node.IsLeaf);
+        writer.Write(node.IsRoot);
         writer.Write(node.Keys.Count);
 
         foreach (var key in node.Keys)
@@ -69,9 +70,9 @@ public class MemoryManagerService : IMemoryManagerService
     {
         using var ms = new MemoryStream(data);
         using var reader = new BinaryReader(ms);
+        
         var pageID = new Guid(reader.ReadBytes(16));
         var page = new RecordsPage(pageID);
-
         var recordCount = reader.ReadInt32();
         for (var i = 0; i < recordCount; i++)
         {
@@ -85,9 +86,8 @@ public class MemoryManagerService : IMemoryManagerService
         return page;
     }
     
-    public BTreeNodePage? DeserializeBTreeNodePage(byte[] data)
+    public BTreeNodePage DeserializeBTreeNodePage(byte[] data)
     {
-        //TODO: optimize deserialization (unnecessary keyCount and addressCount, need to specify childs number)
         using var ms = new MemoryStream(data);
         using var reader = new BinaryReader(ms);
         
@@ -97,14 +97,15 @@ public class MemoryManagerService : IMemoryManagerService
         
         var node = new BTreeNodePage(currentPageID, isLeaf, isRoot, _appSettings.TreeDegree);
         
-        var keyCount = reader.ReadInt32();
-        for (var i = 0; i < keyCount; i++)
+        var keysCount = reader.ReadInt32();
+        
+        for (var i = 0; i < keysCount; i++)
         {
             node.Keys.Add(reader.ReadUInt32());
         }
 
-        var addressCount = reader.ReadInt32();
-        for (var i = 0; i < addressCount; i++)
+        
+        for (var i = 0; i < keysCount; i++)
         {
             var pageID = reader.ReadBytes(16);
             var offset = reader.ReadUInt32();
@@ -113,8 +114,8 @@ public class MemoryManagerService : IMemoryManagerService
 
         if (isLeaf) return node;
         
-        var childPointerCount = keyCount + 1;
-        for (var i = 0; i < childPointerCount; i++)
+        
+        for (var i = 0; i < keysCount + 1; i++)
         {
             node.ChildPointers.Add(new Guid(reader.ReadBytes(16)));
         }
