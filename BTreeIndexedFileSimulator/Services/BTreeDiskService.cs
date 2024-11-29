@@ -21,7 +21,7 @@ public class BTreeDiskService : IBTreeDiskService
     public void InsertRecord(Record record, Guid pageID, uint offset)
     {
         var rootNode = _memoryManagerService.GetRootPage();
-
+        
         // Check if the root is empty
         if (rootNode == null || rootNode.Keys.Count == 0)
         {
@@ -34,6 +34,10 @@ public class BTreeDiskService : IBTreeDiskService
             _memoryManagerService.SavePageToFile(
                 _memoryManagerService.SerializeBTreeNodePage(rootNode),
                 rootNode.PageID
+            );
+            
+            var deserializedRoot = _memoryManagerService.DeserializeBTreeNodePage(
+                File.ReadAllBytes($"Disk/{rootNode.PageID}.bin")
             );
 
             // Update the root in memory
@@ -61,6 +65,10 @@ public class BTreeDiskService : IBTreeDiskService
 
             // Update the root in memory
             _memoryManagerService.SetRootPage(newRoot);
+            
+            var deserializedRoot = _memoryManagerService.DeserializeBTreeNodePage(
+                File.ReadAllBytes($"Disk/{newRoot.PageID}.bin")
+            );
         }
     }
 
@@ -108,6 +116,7 @@ public class BTreeDiskService : IBTreeDiskService
             {
                 // Insert the promoted key and pointer into the current node
                 node.Keys.Insert(childIndex, splitResult.PromotedKey);
+                node.Addresses.Insert(childIndex, splitResult.PromotedKeyAddress);
                 node.ChildPointers.Insert(childIndex + 1, splitResult.NewNode.PageID);
 
                 // Save the updated node to disk

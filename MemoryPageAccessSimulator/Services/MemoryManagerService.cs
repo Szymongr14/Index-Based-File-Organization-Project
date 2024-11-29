@@ -91,20 +91,19 @@ public class MemoryManagerService : IMemoryManagerService
         using var ms = new MemoryStream(data);
         using var reader = new BinaryReader(ms);
         
+        // Read header
         var currentPageID = new Guid(reader.ReadBytes(16));
         var isLeaf = reader.ReadBoolean();
         var isRoot = reader.ReadBoolean();
+        var keysCount = reader.ReadInt32();
         
         var node = new BTreeNodePage(currentPageID, isLeaf, isRoot, _appSettings.TreeDegree);
-        
-        var keysCount = reader.ReadInt32();
         
         for (var i = 0; i < keysCount; i++)
         {
             node.Keys.Add(reader.ReadUInt32());
         }
 
-        
         for (var i = 0; i < keysCount; i++)
         {
             var pageID = reader.ReadBytes(16);
@@ -113,7 +112,6 @@ public class MemoryManagerService : IMemoryManagerService
         }
 
         if (isLeaf) return node;
-        
         
         for (var i = 0; i < keysCount + 1; i++)
         {
