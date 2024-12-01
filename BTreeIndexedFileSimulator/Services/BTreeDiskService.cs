@@ -40,9 +40,32 @@ public class BTreeDiskService : IBTreeDiskService
         }
     }
 
-    public Record FindRecord(Record record)
+    public (Guid pageId, uint offset) FindAddressOfKey(uint key)
     {
-        throw new NotImplementedException();
+        var currentNode = _memoryManagerService.GetRootPage();
+        if (currentNode == null) return (Guid.Empty, 0);
+    
+        while (!currentNode!.IsLeaf)
+        {
+            var childIndex = currentNode.Keys.BinarySearch(key);
+            if (childIndex >= 0)
+            {
+                return currentNode.Addresses[childIndex];
+            }
+            childIndex = ~childIndex;
+            var childPageID = currentNode.ChildPointers[childIndex];
+            currentNode = _memoryManagerService.DeserializeBTreeNodePage(
+                File.ReadAllBytes($"Disk/{childPageID}.bin")
+            );
+        }
+
+        var leafIndex = currentNode.Keys.BinarySearch(key);
+        if (leafIndex >= 0)
+        {
+            return currentNode.Addresses[leafIndex];
+        }
+
+        return (Guid.Empty, 0);
     }
 
     private BTreeNodePage InitializeNewRoot(Record record, Guid pageID, uint offset)
@@ -94,7 +117,7 @@ public class BTreeDiskService : IBTreeDiskService
         while (!currentNode.IsLeaf)
         {
             // Find the child index
-            int childIndex = currentNode.Keys.BinarySearch(record.Key);
+            var childIndex = currentNode.Keys.BinarySearch(record.Key);
             if (childIndex < 0) childIndex = ~childIndex;
 
             // Push the current node and index to the stack
@@ -108,7 +131,7 @@ public class BTreeDiskService : IBTreeDiskService
         }
 
         // Insert into the leaf node
-        int insertIndex = currentNode.Keys.BinarySearch(record.Key);
+        var insertIndex = currentNode.Keys.BinarySearch(record.Key);
         if (insertIndex < 0) insertIndex = ~insertIndex;
 
         currentNode.Keys.Insert(insertIndex, record.Key);
@@ -209,7 +232,7 @@ public class BTreeDiskService : IBTreeDiskService
             // Add child nodes to the stack if not a leaf
             if (!node.IsLeaf)
             {
-                for (int i = node.ChildPointers.Count - 1; i >= 0; i--)
+                for (var i = node.ChildPointers.Count - 1; i >= 0; i--)
                 {
                     stack.Push((node.ChildPointers[i], level + 1));
                 }

@@ -31,6 +31,8 @@ public class IndexBasedFileSimulator
         var records = _datasetInputStrategy.GetRecords();
         SaveRecordsOnDisk(records);
         _bTreeDiskService.PrintBTree();
+        var (pageID, offset) = _bTreeDiskService.FindAddressOfKey(1);
+        Console.WriteLine($"PageID: {pageID} Offset: {offset}");
     }
 
     private void SaveRecordsOnDisk(IEnumerable<Record> records)
