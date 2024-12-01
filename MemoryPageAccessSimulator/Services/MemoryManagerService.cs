@@ -142,13 +142,23 @@ public class MemoryManagerService : IMemoryManagerService
         return _ram.FreeSlots.Count == 0 ? ((Guid pageID, uint offset))(Guid.Empty, 0) : _ram.FreeSlots.Pop();
     }
 
-    public void InsertRecordToPage(RecordsPage page, Record record)
-    {
-        _ram.AddPageToCache(page.PageID, page);
-    }
-
     public void AddFreeSpaceForRecord((Guid pageID, uint offset) freeSpace)
     {
         _ram.FreeSlots.Push(freeSpace);
+    }
+
+    public BTreeNodePage? GetBTreePageFromDisk(Guid pageID)
+    {
+        if(_ram.CheckCacheForSpecificPage(pageID))
+        {
+            return _ram.GetPageFromCache(pageID);
+        }
+
+        var filePath = $"Disk/{pageID}.bin";
+        if (!File.Exists(filePath)) return null;
+        var data = File.ReadAllBytes(filePath);
+        var node = DeserializeBTreeNodePage(data);
+        _ram.AddPageToCache(node);
+        return node;
     }
 }

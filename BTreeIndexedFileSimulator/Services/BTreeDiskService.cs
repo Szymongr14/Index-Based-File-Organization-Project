@@ -54,9 +54,7 @@ public class BTreeDiskService : IBTreeDiskService
             }
             childIndex = ~childIndex;
             var childPageID = currentNode.ChildPointers[childIndex];
-            currentNode = _memoryManagerService.DeserializeBTreeNodePage(
-                File.ReadAllBytes($"Disk/{childPageID}.bin")
-            );
+            currentNode = _memoryManagerService.GetBTreePageFromDisk(childPageID);
         }
 
         var leafIndex = currentNode.Keys.BinarySearch(key);
@@ -125,9 +123,7 @@ public class BTreeDiskService : IBTreeDiskService
 
             // Load the child node
             var childPageID = currentNode.ChildPointers[childIndex];
-            currentNode = _memoryManagerService.DeserializeBTreeNodePage(
-                File.ReadAllBytes($"Disk/{childPageID}.bin")
-            );
+            currentNode = _memoryManagerService.GetBTreePageFromDisk(childPageID);
         }
 
         // Insert into the leaf node
@@ -224,7 +220,7 @@ public class BTreeDiskService : IBTreeDiskService
             var (pageID, level) = stack.Pop();
 
             // Load the node from disk
-            var node = _memoryManagerService.DeserializeBTreeNodePage(File.ReadAllBytes($"Disk/{pageID}.bin"));
+            var node = _memoryManagerService.GetBTreePageFromDisk(pageID);
 
             // Print the current node
             Console.WriteLine($"{new string(' ', level * 2)}Level {level}, Page {pageID}: Keys = [{string.Join(", ", node.Keys)}]");
@@ -239,7 +235,7 @@ public class BTreeDiskService : IBTreeDiskService
             }
         }
     }
-
+    
     public void PrintRecordsInOrder()
     {
         throw new NotImplementedException();

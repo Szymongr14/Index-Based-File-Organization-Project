@@ -3,28 +3,39 @@ namespace MemoryPageAccessSimulator.Models;
 public class RAM
 {
     private readonly AppSettings _appSettings;
-    private Dictionary<Guid, object> _cache;
+    private Dictionary<Guid, BTreeNodePage> _cache = new();
     private int _maxCachePages;
     public BTreeNodePage? BTreeRootPage { get; set; }
-    public Stack<(Guid PageID, uint Offset)> FreeSlots;
+    private LinkedList<BTreeNodePage> _lruList = [];
+    public Stack<(Guid PageID, uint Offset)> FreeSlots { get; set; } = new();
 
     public RAM(AppSettings appSettings)
     {
         _appSettings = appSettings;
-        _maxCachePages = appSettings.RAMSizeInNumberOfPages - 2;
-        _cache = new Dictionary<Guid, object>();
+        _maxCachePages = appSettings.RAMSizeInNumberOfPages - 1;
         BTreeRootPage = null;
-        FreeSlots = new Stack<(Guid PageID, uint Offset)>();
     }
     
-    public void AddPageToCache(Guid pageID, object page)
+    public void AddPageToCache(BTreeNodePage bTreeNodePage)
     {
         if (_cache.Count >= _maxCachePages)
         {
-            var lruPageID = _cache.First().Key;
-            _cache.Remove(lruPageID);
+            var lruNode = _lruList.Last();
+            _lruList.RemoveLast();
+            _cache[lruNode.PageID] = lruNode;
         }
 
-        _cache.Add(pageID, page);
+        _cache.Add(bTreeNodePage.PageID, bTreeNodePage);
+        _lruList.AddFirst(bTreeNodePage);
+    }
+
+    public bool CheckCacheForSpecificPage(Guid pageID)
+    {
+        return _cache.ContainsKey(pageID);
+    }
+    
+    public BTreeNodePage GetPageFromCache(Guid pageID)
+    {
+        return _cache[pageID];
     }
 }

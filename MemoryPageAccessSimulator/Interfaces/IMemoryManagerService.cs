@@ -13,7 +13,6 @@ public interface IMemoryManagerService
     public BTreeNodePage? GetRootPage();
     public void SetRootPage(BTreeNodePage? nodePage);
     public (Guid pageID, uint offset) GetFreeSpaceForRecord();
-    public void InsertRecordToPage(RecordsPage page, Record record);
     public void AddFreeSpaceForRecord((Guid pageID, uint offset) freeSpace);
-    
+    public BTreeNodePage? GetBTreePageFromDisk(Guid pageID);
 }
