@@ -47,7 +47,7 @@ public class MemoryManagerService : IMemoryManagerService
         _ram.FreeSlots.Push(freeSpace);
     }
 
-    public BTreeNodePage? GetBTreePageFromDisk(Guid pageID)
+    public BTreeNodePage GetBTreePageFromDisk(Guid pageID)
     {
         if(_ram.CheckCacheForSpecificPage(pageID))
         {
@@ -55,10 +55,17 @@ public class MemoryManagerService : IMemoryManagerService
         }
 
         var filePath = $"Disk/{pageID}.bin";
-        if (!File.Exists(filePath)) return null;
         var data = File.ReadAllBytes(filePath);
         var node = BTreeNodePageSerializer.Deserialize(data);
         _ram.AddPageToCache(node);
+        return node;
+    }
+    
+    public RecordsPage GetRecordsPageFromDisk(Guid pageID)
+    {
+        var filePath = $"Disk/{pageID}.bin";
+        var data = File.ReadAllBytes(filePath);
+        var node = RecordsPageSerializer.Deserialize(data);
         return node;
     }
 }

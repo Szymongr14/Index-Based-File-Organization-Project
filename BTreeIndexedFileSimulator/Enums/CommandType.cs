@@ -5,5 +5,6 @@ public enum CommandType
     Insert,
     Find,
     Delete,
-    Update
+    Update,
+    Print
 }

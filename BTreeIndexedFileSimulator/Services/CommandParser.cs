@@ -28,14 +28,15 @@ public class CommandParser : ICommandParser{
 
         var commandType = parts[0] switch
         {
-            "i" => CommandType.Insert,
-            "f" => CommandType.Find,
-            "d" => CommandType.Delete,
-            "u" => CommandType.Update,
+            "insert" => CommandType.Insert,
+            "find" => CommandType.Find,
+            "delete" => CommandType.Delete,
+            "update" => CommandType.Update,
+            "print" => CommandType.Print,
             _ => throw new InvalidOperationException($"Unknown command: {parts[0]}")
         };
 
-        var parameters = parts.Skip(1).Select(int.Parse).ToList();
+        var parameters = parts.Skip(1).Select(double.Parse).ToList();
 
         return new Command(commandType, parameters); 
     }

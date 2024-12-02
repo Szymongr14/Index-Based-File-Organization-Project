@@ -2,8 +2,8 @@ using BTreeIndexedFileSimulator.Enums;
 
 namespace BTreeIndexedFileSimulator.Models;
 
-public class Command(CommandType type, List<int> parameters)
+public class Command(CommandType type, List<double> parameters)
 {
     public CommandType Type { get; set; } = type;
-    public List<int> Parameters { get; set; } = parameters;
+    public List<double> Parameters { get; set; } = parameters;
 }

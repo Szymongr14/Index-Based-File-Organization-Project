@@ -32,16 +32,23 @@ public class IndexBasedFileSimulator
 
     public void Start()
     {
+        ProcessInitialRecords();
+        ProcessInstructions();
+    }
+    
+    private void ProcessInitialRecords()
+    {
         var records = _datasetInputStrategy.GetRecords();
         SaveRecordsOnDisk(records);
-        _bTreeDiskService.PrintBTree();
+    }
+    
+    private void ProcessInstructions()
+    {
         var commands = _commandParser.ParseCommandsFile(_appSettings.FilePathToInstructions);
         foreach (var command in commands)
         {
             ExecuteCommand(command);
         }
-        var (pageID, offset) = _bTreeDiskService.FindAddressOfKey(1);
-        Console.WriteLine($"PageID: {pageID} Offset: {offset}");
     }
 
     private void SaveRecordsOnDisk(IEnumerable<Record> records)
@@ -74,49 +81,66 @@ public class IndexBasedFileSimulator
         }
     }
 
-    // private void InsertRecordAndUpdateBTree(Record record)
-    // {
-    //     var (pageID, offset) = _memoryManagerService.GetFreeSpaceForRecord();
-    //     if (pageID == Guid.Empty)
-    //     {
-    //         var page = new RecordsPage(Guid.NewGuid());
-    //         page.Records.Add(record);
-    //         _bTreeDiskService.InsertRecord(record, page.PageID, RecordsPageHeaderSizeInBytes);
-    //         _memoryManagerService.AddFreeSpaceForRecord((page.PageID, RecordsPageHeaderSizeInBytes + (uint)_appSettings.RecordSizeInBytes));
-    //     }
-    //     else
-    //     {
-    //     }
-    //
-    // }
-
-    // private Record? FindRecord(uint key)
-    // {
-    //     var (pageID, offset) = _bTreeDiskService.FindAddressOfKey(key);
-    //     if (pageID == Guid.Empty)
-    //     {
-    //         _logger.LogInformation($"Record with key {key} not found.");
-    //         return null;
-    //     }
-    //     
-    //     
-    //
-    // }
+    private void InsertRecordAndUpdateBTree(Record record)
+    {
+        var (pageID, offset) = _memoryManagerService.GetFreeSpaceForRecord();
+        if (pageID == Guid.Empty)
+        {
+            var page = new RecordsPage(Guid.NewGuid());
+            page.Records.Add(record);
+            _memoryManagerService.SavePageToFile(RecordsPageSerializer.Serialize(page), page.PageID);
+            _bTreeDiskService.InsertRecord(record, page.PageID, RecordsPageHeaderSizeInBytes);
+            _memoryManagerService.AddFreeSpaceForRecord((page.PageID, RecordsPageHeaderSizeInBytes + (uint)_appSettings.RecordSizeInBytes));
+        }
+        else
+        {
+            var recordsPage = _memoryManagerService.GetRecordsPageFromDisk(pageID);
+            recordsPage.Records.Insert(((int)offset - RecordsPageHeaderSizeInBytes) / _appSettings.RecordSizeInBytes, record);
+            _memoryManagerService.SavePageToFile(RecordsPageSerializer.Serialize(recordsPage), recordsPage.PageID);
+            _bTreeDiskService.InsertRecord(record, recordsPage.PageID, offset);
+            if (!IsPageFull(recordsPage))
+            {
+                _memoryManagerService.AddFreeSpaceForRecord((recordsPage.PageID, offset + (uint)_appSettings.RecordSizeInBytes));
+            }
+            
+        }
+    }
     
-    private static void ExecuteCommand(Command command)
+    private bool IsPageFull(RecordsPage page)
+    {
+        return page.Records.Count == _appSettings.PageSizeInNumberOfRecords;
+    }
+
+    private Record? FindRecord(uint key)
+    {
+        var (pageID, offset) = _bTreeDiskService.FindAddressOfKey(key);
+        if (pageID == Guid.Empty)
+        {
+            _logger.LogError($"Record with key {key} not found.");
+            return null;
+        }
+
+        var pageWithRecord = _memoryManagerService.GetRecordsPageFromDisk(pageID);
+        var recordIndex = (int)(offset - RecordsPageHeaderSizeInBytes) / _appSettings.RecordSizeInBytes;
+        var record = pageWithRecord.Records[recordIndex];
+        return record;
+    }
+    
+    private void ExecuteCommand(Command command)
     {
         switch (command.Type)
         {
             case CommandType.Insert:
-                var keyToInsert = command.Parameters[0];
-                // Handle insert (e.g., _bTreeDiskService.InsertRecord(...))
-                Console.WriteLine($"Insert key {keyToInsert}");
+                var keyToInsert = command.Parameters[2];
+                InsertRecordAndUpdateBTree(new Record(Convert.ToDouble(command.Parameters[0]), command.Parameters[1], Convert.ToUInt32(keyToInsert)));
+                Console.WriteLine($"Inserted record with key {keyToInsert}");
                 break;
 
             case CommandType.Find:
                 var keyToFind = command.Parameters[0];
-                // Handle find (e.g., _bTreeDiskService.FindRecord(...))
-                Console.WriteLine($"Find key {keyToFind}");
+                var record = FindRecord(Convert.ToUInt32(keyToFind));
+                if (record == null) break;
+                Console.WriteLine($"Found record with key {keyToFind}: X:{record.X}, Y:{record.Y}");
                 break;
 
             case CommandType.Delete:
@@ -130,6 +154,10 @@ public class IndexBasedFileSimulator
                 var newValue = command.Parameters[1];
                 // Handle update (e.g., _bTreeDiskService.UpdateRecord(...))
                 Console.WriteLine($"Update key {keyToUpdate} with value {newValue}");
+                break;
+            
+            case CommandType.Print:
+                _bTreeDiskService.PrintBTree();
                 break;
 
             default:
