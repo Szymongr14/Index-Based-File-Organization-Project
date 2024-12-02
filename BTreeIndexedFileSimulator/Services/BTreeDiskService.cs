@@ -2,6 +2,7 @@ using BTreeIndexedFileSimulator.Interfaces;
 using BTreeIndexedFileSimulator.Models;
 using MemoryPageAccessSimulator.Interfaces;
 using MemoryPageAccessSimulator.Models;
+using MemoryPageAccessSimulator.Utilities;
 
 namespace BTreeIndexedFileSimulator.Services;
 
@@ -68,13 +69,13 @@ public class BTreeDiskService : IBTreeDiskService
 
     private BTreeNodePage InitializeNewRoot(Record record, Guid pageID, uint offset)
     {
-        var rootNode = new BTreeNodePage(Guid.NewGuid(), isLeaf: true, isRoot: true, Degree);
+        var rootNode = new BTreeNodePage(Guid.NewGuid(), isLeaf: true, isRoot: true);
         rootNode.Keys.Add(record.Key);
         rootNode.Addresses.Add((pageID, offset));
 
         // Save the root node to disk
         _memoryManagerService.SavePageToFile(
-            _memoryManagerService.SerializeBTreeNodePage(rootNode),
+            BTreeNodePageSerializer.Serialize(rootNode),
             rootNode.PageID
         );
 
@@ -87,7 +88,7 @@ public class BTreeDiskService : IBTreeDiskService
     private BTreeNodePage HandleRootSplit(BTreeNodePage rootNode, SplitResult splitResult)
     {
         // Create a new root
-        var newRoot = new BTreeNodePage(Guid.NewGuid(), isLeaf: false, isRoot: true, Degree);
+        var newRoot = new BTreeNodePage(Guid.NewGuid(), isLeaf: false, isRoot: true);
         newRoot.Keys.Add(splitResult.PromotedKey); // The promoted key becomes the root's key
         newRoot.Addresses.Add(splitResult.PromotedKeyAddress); // Add promoted key address
         newRoot.ChildPointers.Add(rootNode.PageID); // Old root becomes the left child
@@ -95,7 +96,7 @@ public class BTreeDiskService : IBTreeDiskService
 
         // Save the new root to disk
         _memoryManagerService.SavePageToFile(
-            _memoryManagerService.SerializeBTreeNodePage(newRoot),
+            BTreeNodePageSerializer.Serialize(newRoot),
             newRoot.PageID
         );
 
@@ -135,7 +136,7 @@ public class BTreeDiskService : IBTreeDiskService
 
         // Save the updated leaf node to disk
         _memoryManagerService.SavePageToFile(
-            _memoryManagerService.SerializeBTreeNodePage(currentNode),
+            BTreeNodePageSerializer.Serialize(currentNode),
             currentNode.PageID
         );
 
@@ -158,7 +159,7 @@ public class BTreeDiskService : IBTreeDiskService
 
             // Save the updated parent node to disk
             _memoryManagerService.SavePageToFile(
-                _memoryManagerService.SerializeBTreeNodePage(parentNode),
+                BTreeNodePageSerializer.Serialize(parentNode),
                 parentNode.PageID
             );
 
@@ -176,7 +177,7 @@ public class BTreeDiskService : IBTreeDiskService
         node.IsRoot = false;
 
         // Create a new node for the right half
-        var newNode = new BTreeNodePage(Guid.NewGuid(), node.IsLeaf, isRoot: false, Degree);
+        var newNode = new BTreeNodePage(Guid.NewGuid(), node.IsLeaf, isRoot: false);
         newNode.Keys.AddRange(node.Keys.GetRange(midIndex + 1, node.Keys.Count - midIndex - 1));
         node.Keys.RemoveRange(midIndex, node.Keys.Count - midIndex);
         newNode.Addresses.AddRange(node.Addresses.GetRange(midIndex + 1, node.Addresses.Count - midIndex - 1));
@@ -189,12 +190,12 @@ public class BTreeDiskService : IBTreeDiskService
 
         // Save the updated nodes to disk
         _memoryManagerService.SavePageToFile(
-            _memoryManagerService.SerializeBTreeNodePage(node),
+            BTreeNodePageSerializer.Serialize(node),
             node.PageID
         );
 
         _memoryManagerService.SavePageToFile(
-            _memoryManagerService.SerializeBTreeNodePage(newNode),
+            BTreeNodePageSerializer.Serialize(newNode),
             newNode.PageID
         );
 

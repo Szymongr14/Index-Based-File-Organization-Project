@@ -1,16 +1,11 @@
 namespace MemoryPageAccessSimulator.Models;
 
-public class RecordsPage
+public class RecordsPage : BasePage
 {
     public List<Record> Records { get; set; }
-    public Guid PageID { get; set; }
 
-    public RecordsPage(Guid pageID)
+    public RecordsPage(Guid pageID) : base(pageID)
     {
         Records = [];
-        PageID = pageID;
     }
-    
-    
-    
 }

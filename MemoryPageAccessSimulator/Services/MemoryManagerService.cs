@@ -1,5 +1,6 @@
 using MemoryPageAccessSimulator.Interfaces;
 using MemoryPageAccessSimulator.Models;
+using MemoryPageAccessSimulator.Utilities;
 
 namespace MemoryPageAccessSimulator.Services;
 
@@ -18,107 +19,6 @@ public class MemoryManagerService : IMemoryManagerService
         _ram = new RAM(appSettings);
         PageSizeInBytes = appSettings.PageSizeInNumberOfRecords * appSettings.RecordSizeInBytes;
         PageSizeInNumberOfRecords = (uint)appSettings.PageSizeInNumberOfRecords;
-    }
-    
-    public byte[] SerializeRecordsPage(RecordsPage page)
-    {
-        using var ms = new MemoryStream();
-        using var writer = new BinaryWriter(ms);
-        writer.Write(page.PageID.ToByteArray());
-        writer.Write(page.Records.Count);
-
-        foreach (var record in page.Records)
-        {
-            writer.Write(record.Key);
-            writer.Write(record.X);
-            writer.Write(record.Y);
-        }
-
-        return ms.ToArray();
-    }
-    
-    public byte[] SerializeBTreeNodePage(BTreeNodePage node)
-    {
-        using var ms = new MemoryStream();
-        using var writer = new BinaryWriter(ms);
-        writer.Write(node.PageID.ToByteArray());
-        writer.Write(node.IsLeaf);
-        writer.Write(node.IsRoot);
-        writer.Write(node.Keys.Count);
-
-        foreach (var key in node.Keys)
-        {
-            writer.Write(key);
-        }
-
-        foreach (var address in node.Addresses)
-        {
-            writer.Write(address.pageID.ToByteArray());
-            writer.Write(address.offset);
-        }
-
-        if (node.IsLeaf) return ms.ToArray();
-        foreach (var childPointer in node.ChildPointers)
-        {
-            writer.Write(childPointer.ToByteArray());
-        }
-
-        return ms.ToArray();
-    }
-    
-    public RecordsPage DeserializeRecordsPage(byte[] data)
-    {
-        using var ms = new MemoryStream(data);
-        using var reader = new BinaryReader(ms);
-        
-        var pageID = new Guid(reader.ReadBytes(16));
-        var page = new RecordsPage(pageID);
-        var recordCount = reader.ReadInt32();
-        for (var i = 0; i < recordCount; i++)
-        {
-            var key = reader.ReadUInt32();
-            var x = reader.ReadDouble();
-            var y = reader.ReadDouble();
-                
-            page.Records.Add(new Record(x, y, key));
-        }
-
-        return page;
-    }
-    
-    public BTreeNodePage DeserializeBTreeNodePage(byte[] data)
-    {
-        using var ms = new MemoryStream(data);
-        using var reader = new BinaryReader(ms);
-        
-        // Read header
-        var currentPageID = new Guid(reader.ReadBytes(16));
-        var isLeaf = reader.ReadBoolean();
-        var isRoot = reader.ReadBoolean();
-        var keysCount = reader.ReadInt32();
-        
-        var node = new BTreeNodePage(currentPageID, isLeaf, isRoot, _appSettings.TreeDegree);
-        
-        for (var i = 0; i < keysCount; i++)
-        {
-            node.Keys.Add(reader.ReadUInt32());
-        }
-
-        for (var i = 0; i < keysCount; i++)
-        {
-            var pageID = reader.ReadBytes(16);
-            var offset = reader.ReadUInt32();
-            node.Addresses.Add((new Guid(pageID), offset));
-        }
-
-        if (isLeaf) return node;
-        
-        for (var i = 0; i < keysCount + 1; i++)
-        {
-            node.ChildPointers.Add(new Guid(reader.ReadBytes(16)));
-        }
-
-        return node;
     }
     
     public void SavePageToFile(byte[] pageAsByteStream, Guid pageID)
@@ -157,7 +57,7 @@ public class MemoryManagerService : IMemoryManagerService
         var filePath = $"Disk/{pageID}.bin";
         if (!File.Exists(filePath)) return null;
         var data = File.ReadAllBytes(filePath);
-        var node = DeserializeBTreeNodePage(data);
+        var node = BTreeNodePageSerializer.Deserialize(data);
         _ram.AddPageToCache(node);
         return node;
     }

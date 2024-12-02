@@ -55,8 +55,9 @@ public abstract class Program
         });
         
         services.AddMemoryPageAccessSimulatorDependencies();
-        services.AddTransient<IndexBasedFileSimulator>();
         services.AddTransient<IBTreeDiskService, BTreeDiskService>();
+        services.AddTransient<ICommandParser, CommandParser>();
+        services.AddTransient<IndexBasedFileSimulator>();
     }
 
     private static void ValidateAppSettings(AppSettings settings, ILogger logger)
