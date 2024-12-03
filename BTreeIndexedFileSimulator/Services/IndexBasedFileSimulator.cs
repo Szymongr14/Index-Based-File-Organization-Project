@@ -34,7 +34,6 @@ public class IndexBasedFileSimulator
     {
         ProcessInitialRecords();
         ProcessInstructions();
-        PrintRecordsInOrder();
     }
     
     private void ProcessInitialRecords()
@@ -133,7 +132,7 @@ public class IndexBasedFileSimulator
         {
             case CommandType.Insert:
                 var keyToInsert = command.Parameters[2];
-                InsertRecordAndUpdateBTree(new Record(Convert.ToDouble(command.Parameters[0]), command.Parameters[1], Convert.ToUInt32(keyToInsert)));
+                InsertRecordAndUpdateBTree(new Record(Convert.ToDouble(command.Parameters[0]), Convert.ToDouble(command.Parameters[1]), Convert.ToUInt32(keyToInsert)));
                 Console.WriteLine($"Inserted record with key {keyToInsert}");
                 break;
 
@@ -158,7 +157,18 @@ public class IndexBasedFileSimulator
                 break;
             
             case CommandType.Print:
-                _bTreeDiskService.PrintBTree();
+                var printOption = command.Parameters[0];
+                switch (printOption)
+                {
+                    case "records":
+                        PrintRecordsInOrder();
+                        break;
+                    case "btree":
+                        _bTreeDiskService.PrintBTree();
+                        break;
+                    default:
+                        throw new InvalidOperationException("Unsupported print option");
+                }
                 break;
 
             default:

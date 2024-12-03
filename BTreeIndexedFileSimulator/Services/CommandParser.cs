@@ -36,7 +36,7 @@ public class CommandParser : ICommandParser{
             _ => throw new InvalidOperationException($"Unknown command: {parts[0]}")
         };
 
-        var parameters = parts.Skip(1).Select(double.Parse).ToList();
+        var parameters = parts.Skip(1).ToList();
 
         return new Command(commandType, parameters); 
     }
