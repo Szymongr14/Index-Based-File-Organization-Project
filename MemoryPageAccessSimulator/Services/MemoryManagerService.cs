@@ -49,7 +49,7 @@ public class MemoryManagerService : IMemoryManagerService
 
     public BTreeNodePage GetBTreePageFromDisk(Guid pageID)
     {
-        if(_ram.CheckCacheForSpecificPage(pageID))
+        if(_ram.CheckCacheForSpecificPage(pageID) && _appSettings.EnableCaching)
         {
             return _ram.GetPageFromCache(pageID);
         }

@@ -11,4 +11,5 @@ public class AppSettings
    public string FilePathToRecords { get; init; } = null!;
    public string FilePathToInstructions { get; init; } = null!;
    public int TreeDegree { get; init; }
+   public bool EnableCaching { get; init; }
 }
