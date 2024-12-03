@@ -34,6 +34,7 @@ public class IndexBasedFileSimulator
     {
         ProcessInitialRecords();
         ProcessInstructions();
+        PrintRecordsInOrder();
     }
     
     private void ProcessInitialRecords()
@@ -163,5 +164,42 @@ public class IndexBasedFileSimulator
             default:
                 throw new InvalidOperationException("Unsupported command");
         }
+    }
+    
+    private void PrintRecordsInOrder()
+    {
+        var stack = new Stack<(BTreeNodePage, int)>();
+        var rootNode = _memoryManagerService.GetRootPage();
+        stack.Push((rootNode, 0)!);
+
+        while (stack.Count > 0)
+        {
+            var (node, i) = stack.Pop();
+            if (node.IsLeaf)
+            {
+                foreach (var address in node.Addresses)
+                {
+                    var record = GetRecordFromAddress(address);
+                    Console.WriteLine($"Key: {record.Key}, X: {record.X}, Y: {record.Y}");
+                }
+            }
+            else if (i < node.ChildPointers.Count)
+            {
+                if (i > 0)
+                {
+                    var record = GetRecordFromAddress(node.Addresses[i - 1]);
+                    Console.WriteLine($"Key: {record.Key}, X: {record.X}, Y: {record.Y}");
+                }
+                stack.Push((node, i + 1));
+                stack.Push((_memoryManagerService.GetBTreePageFromDisk(node.ChildPointers[i]), 0));
+            }
+        }
+    }
+    
+    private Record GetRecordFromAddress((Guid pageID, uint offset) address)
+    {
+        var page = _memoryManagerService.GetRecordsPageFromDisk(address.pageID);
+        var recordIndex = ((int)address.offset - RecordsPageHeaderSizeInBytes) / _appSettings.RecordSizeInBytes;
+        return page.Records[recordIndex];
     }
 }
