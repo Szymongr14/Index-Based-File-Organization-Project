@@ -22,7 +22,7 @@ public class RAM
         {
             var lruNode = _lruList.Last();
             _lruList.RemoveLast();
-            _cache[lruNode.PageID] = lruNode;
+            _cache.Remove(lruNode.PageID);
         }
 
         _cache.Add(bTreeNodePage.PageID, bTreeNodePage);
