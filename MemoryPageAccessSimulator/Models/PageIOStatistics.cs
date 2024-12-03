@@ -2,17 +2,37 @@ namespace MemoryPageAccessSimulator.Models;
 
 public class PageIOStatistics
 {
-    public int TotalReads { get; private set; }
-    public int TotalWrites { get; private set; }
+    public int TotalBtreePagesReads { get; private set; }
+    public int TotalBTreePagesWrites { get; private set; }
+    public int TotalRecordsPagesReads { get; private set; }
+    public int TotalRecordsPagesWrites { get; private set; }
 
-    public void IncrementRead()
+    public void IncrementBTreeRead()
     {
-        TotalReads++;
+        TotalBtreePagesReads++;
     }
 
-    public void IncrementWrite()
+    public void IncrementBTreeWrite()
     {
-        TotalWrites++;
+        TotalBTreePagesWrites++;
+    }
+    
+    public void IncrementRecordsRead()
+    {
+        TotalRecordsPagesReads++;
+    }
+    
+    public void IncrementRecordsWrite()
+    {
+        TotalRecordsPagesWrites++;
+    }
+    
+    public void Clear()
+    {
+        TotalBtreePagesReads = 0;
+        TotalBTreePagesWrites = 0;
+        TotalRecordsPagesReads = 0;
+        TotalRecordsPagesWrites = 0;
     }
     
 }

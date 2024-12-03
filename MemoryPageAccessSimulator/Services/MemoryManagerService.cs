@@ -1,3 +1,4 @@
+using MemoryPageAccessSimulator.Enums;
 using MemoryPageAccessSimulator.Interfaces;
 using MemoryPageAccessSimulator.Models;
 using MemoryPageAccessSimulator.Utilities;
@@ -8,6 +9,7 @@ public class MemoryManagerService : IMemoryManagerService
 {
     private readonly AppSettings _appSettings;
     private RAM _ram;
+    private IMemoryManagerService _memoryManagerServiceImplementation;
     private int PageSizeInBytes { get; init; }
     private uint PageSizeInNumberOfRecords { get; init; }
     public PageIOStatistics PageIOStatistics { get; init; } = new();
@@ -21,10 +23,19 @@ public class MemoryManagerService : IMemoryManagerService
         PageSizeInNumberOfRecords = (uint)appSettings.PageSizeInNumberOfRecords;
     }
     
-    public void SavePageToFile(byte[] pageAsByteStream, Guid pageID)
+    public void SavePageToFile(byte[] pageAsByteStream, Guid pageID, PageType pageType)
     {
         var filePath = $"Disk/{pageID.ToString()}.bin";
         File.WriteAllBytes(filePath, pageAsByteStream);
+        switch (pageType)
+        {
+            case PageType.Records:
+                PageIOStatistics.IncrementRecordsWrite();
+                break;
+            case PageType.BTreeNode:
+                PageIOStatistics.IncrementBTreeWrite();
+                break;
+        }
     }
 
     public BTreeNodePage? GetRootPage()
@@ -49,15 +60,22 @@ public class MemoryManagerService : IMemoryManagerService
 
     public BTreeNodePage GetBTreePageFromDisk(Guid pageID)
     {
-        if(_ram.CheckCacheForSpecificPage(pageID) && _appSettings.EnableCaching)
+        var filePath = $"Disk/{pageID}.bin";
+
+        if (_appSettings.EnableCaching && _ram.CheckCacheForSpecificPage(pageID))
         {
             return _ram.GetPageFromCache(pageID);
         }
 
-        var filePath = $"Disk/{pageID}.bin";
         var data = File.ReadAllBytes(filePath);
+        PageIOStatistics.IncrementBTreeRead();
         var node = BTreeNodePageSerializer.Deserialize(data);
-        _ram.AddPageToCache(node);
+
+        if (_appSettings.EnableCaching)
+        {
+            _ram.AddPageToCache(node);
+        }
+
         return node;
     }
     
@@ -65,7 +83,22 @@ public class MemoryManagerService : IMemoryManagerService
     {
         var filePath = $"Disk/{pageID}.bin";
         var data = File.ReadAllBytes(filePath);
+        PageIOStatistics.IncrementRecordsRead();
         var node = RecordsPageSerializer.Deserialize(data);
         return node;
+    }
+
+    public void ClearIOStatistics()
+    {
+        PageIOStatistics.Clear();
+    }
+    
+    public void PrintIOStatistics()
+    {
+        Console.WriteLine("IO Statistics:");
+        Console.WriteLine($"Total BTree Reads: {PageIOStatistics.TotalBtreePagesReads}");
+        Console.WriteLine($"Total BTree Writes: {PageIOStatistics.TotalBTreePagesWrites}");
+        Console.WriteLine($"Total Records Reads: {PageIOStatistics.TotalRecordsPagesReads}");
+        Console.WriteLine($"Total Records Writes: {PageIOStatistics.TotalRecordsPagesWrites}");
     }
 }

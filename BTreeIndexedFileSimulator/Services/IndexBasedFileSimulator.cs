@@ -1,6 +1,7 @@
 using BTreeIndexedFileSimulator.Enums;
 using BTreeIndexedFileSimulator.Interfaces;
 using BTreeIndexedFileSimulator.Models;
+using MemoryPageAccessSimulator.Enums;
 using MemoryPageAccessSimulator.Interfaces;
 using MemoryPageAccessSimulator.Models;
 using MemoryPageAccessSimulator.Utilities;
@@ -67,7 +68,7 @@ public class IndexBasedFileSimulator
             if (recordIndex % _appSettings.PageSizeInNumberOfRecords == 0)
             {
                 var pageAsByteStream = RecordsPageSerializer.Serialize(page);
-                _memoryManagerService.SavePageToFile(pageAsByteStream, page.PageID);
+                _memoryManagerService.SavePageToFile(pageAsByteStream, page.PageID, PageType.Records);
                 offsetInPage = RecordsPageHeaderSizeInBytes;
                 page = new RecordsPage(Guid.NewGuid());
             }
@@ -76,7 +77,7 @@ public class IndexBasedFileSimulator
         if (page.Records.Count > 0)
         {
             var pageAsByteStream = RecordsPageSerializer.Serialize(page);
-            _memoryManagerService.SavePageToFile(pageAsByteStream, page.PageID);
+            _memoryManagerService.SavePageToFile(pageAsByteStream, page.PageID, PageType.Records);
             _memoryManagerService.AddFreeSpaceForRecord((page.PageID, (uint)offsetInPage));
         }
     }
@@ -88,7 +89,7 @@ public class IndexBasedFileSimulator
         {
             var page = new RecordsPage(Guid.NewGuid());
             page.Records.Add(record);
-            _memoryManagerService.SavePageToFile(RecordsPageSerializer.Serialize(page), page.PageID);
+            _memoryManagerService.SavePageToFile(RecordsPageSerializer.Serialize(page), page.PageID, PageType.Records);
             _bTreeDiskService.InsertRecord(record, page.PageID, RecordsPageHeaderSizeInBytes);
             _memoryManagerService.AddFreeSpaceForRecord((page.PageID, RecordsPageHeaderSizeInBytes + (uint)_appSettings.RecordSizeInBytes));
         }
@@ -96,7 +97,7 @@ public class IndexBasedFileSimulator
         {
             var recordsPage = _memoryManagerService.GetRecordsPageFromDisk(pageID);
             recordsPage.Records.Insert(((int)offset - RecordsPageHeaderSizeInBytes) / _appSettings.RecordSizeInBytes, record);
-            _memoryManagerService.SavePageToFile(RecordsPageSerializer.Serialize(recordsPage), recordsPage.PageID);
+            _memoryManagerService.SavePageToFile(RecordsPageSerializer.Serialize(recordsPage), recordsPage.PageID, PageType.Records);
             _bTreeDiskService.InsertRecord(record, recordsPage.PageID, offset);
             if (!IsPageFull(recordsPage))
             {
@@ -132,7 +133,9 @@ public class IndexBasedFileSimulator
         {
             case CommandType.Insert:
                 var keyToInsert = command.Parameters[2];
+                _memoryManagerService.ClearIOStatistics();
                 InsertRecordAndUpdateBTree(new Record(Convert.ToDouble(command.Parameters[0]), Convert.ToDouble(command.Parameters[1]), Convert.ToUInt32(keyToInsert)));
+                _memoryManagerService.PrintIOStatistics();
                 Console.WriteLine($"Inserted record with key {keyToInsert}");
                 break;
 

@@ -1,5 +1,6 @@
 using BTreeIndexedFileSimulator.Interfaces;
 using BTreeIndexedFileSimulator.Models;
+using MemoryPageAccessSimulator.Enums;
 using MemoryPageAccessSimulator.Interfaces;
 using MemoryPageAccessSimulator.Models;
 using MemoryPageAccessSimulator.Utilities;
@@ -76,7 +77,8 @@ public class BTreeDiskService : IBTreeDiskService
         // Save the root node to disk
         _memoryManagerService.SavePageToFile(
             BTreeNodePageSerializer.Serialize(rootNode),
-            rootNode.PageID
+            rootNode.PageID,
+            PageType.BTreeNode
         );
 
         // Update the root in memory
@@ -97,7 +99,8 @@ public class BTreeDiskService : IBTreeDiskService
         // Save the new root to disk
         _memoryManagerService.SavePageToFile(
             BTreeNodePageSerializer.Serialize(newRoot),
-            newRoot.PageID
+            newRoot.PageID,
+            PageType.BTreeNode
         );
 
         // Update the root in memory
@@ -137,7 +140,8 @@ public class BTreeDiskService : IBTreeDiskService
         // Save the updated leaf node to disk
         _memoryManagerService.SavePageToFile(
             BTreeNodePageSerializer.Serialize(currentNode),
-            currentNode.PageID
+            currentNode.PageID,
+            PageType.BTreeNode
         );
 
         // Handle splits iteratively
@@ -160,7 +164,8 @@ public class BTreeDiskService : IBTreeDiskService
             // Save the updated parent node to disk
             _memoryManagerService.SavePageToFile(
                 BTreeNodePageSerializer.Serialize(parentNode),
-                parentNode.PageID
+                parentNode.PageID,
+                PageType.BTreeNode
             );
 
             currentNode = parentNode; // Continue checking upwards
@@ -191,12 +196,14 @@ public class BTreeDiskService : IBTreeDiskService
         // Save the updated nodes to disk
         _memoryManagerService.SavePageToFile(
             BTreeNodePageSerializer.Serialize(node),
-            node.PageID
+            node.PageID,
+            PageType.BTreeNode
         );
 
         _memoryManagerService.SavePageToFile(
             BTreeNodePageSerializer.Serialize(newNode),
-            newNode.PageID
+            newNode.PageID,
+            PageType.BTreeNode
         );
 
         return new SplitResult(promotedKey, promotedKeyAddress, newNode);
