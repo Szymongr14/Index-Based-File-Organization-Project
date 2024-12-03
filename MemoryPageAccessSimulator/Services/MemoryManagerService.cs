@@ -9,10 +9,9 @@ public class MemoryManagerService : IMemoryManagerService
 {
     private readonly AppSettings _appSettings;
     private RAM _ram;
-    private IMemoryManagerService _memoryManagerServiceImplementation;
     private int PageSizeInBytes { get; init; }
     private uint PageSizeInNumberOfRecords { get; init; }
-    public PageIOStatistics PageIOStatistics { get; init; } = new();
+    private PageIOStatistics PageIOStatistics { get; init; } = new();
 
     
     public MemoryManagerService(AppSettings appSettings)
@@ -95,10 +94,8 @@ public class MemoryManagerService : IMemoryManagerService
     
     public void PrintIOStatistics()
     {
-        Console.WriteLine("IO Statistics:");
-        Console.WriteLine($"Total BTree Reads: {PageIOStatistics.TotalBtreePagesReads}");
-        Console.WriteLine($"Total BTree Writes: {PageIOStatistics.TotalBTreePagesWrites}");
-        Console.WriteLine($"Total Records Reads: {PageIOStatistics.TotalRecordsPagesReads}");
-        Console.WriteLine($"Total Records Writes: {PageIOStatistics.TotalRecordsPagesWrites}");
+        Console.WriteLine($"IO Statistics: " +
+                          $"BTreePages R({PageIOStatistics.TotalRecordsPagesReads}) W({PageIOStatistics.TotalBTreePagesWrites}), " +
+                          $"RecordsPages R({PageIOStatistics.TotalRecordsPagesReads}) W({PageIOStatistics.TotalRecordsPagesWrites})");
     }
 }

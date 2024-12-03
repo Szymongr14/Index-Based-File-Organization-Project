@@ -135,12 +135,12 @@ public class IndexBasedFileSimulator
                 var keyToInsert = command.Parameters[2];
                 _memoryManagerService.ClearIOStatistics();
                 InsertRecordAndUpdateBTree(new Record(Convert.ToDouble(command.Parameters[0]), Convert.ToDouble(command.Parameters[1]), Convert.ToUInt32(keyToInsert)));
-                _memoryManagerService.PrintIOStatistics();
                 Console.WriteLine($"Inserted record with key {keyToInsert}");
                 break;
 
             case CommandType.Find:
                 var keyToFind = command.Parameters[0];
+                _memoryManagerService.ClearIOStatistics();
                 var record = FindRecord(Convert.ToUInt32(keyToFind));
                 if (record == null) break;
                 Console.WriteLine($"Found record with key {keyToFind}: X:{record.X}, Y:{record.Y}");
@@ -148,6 +148,7 @@ public class IndexBasedFileSimulator
 
             case CommandType.Delete:
                 var keyToDelete = command.Parameters[0];
+                _memoryManagerService.ClearIOStatistics();
                 // Handle delete (e.g., _bTreeDiskService.DeleteRecord(...))
                 Console.WriteLine($"Delete key {keyToDelete}");
                 break;
@@ -164,19 +165,23 @@ public class IndexBasedFileSimulator
                 switch (printOption)
                 {
                     case "records":
+                        _memoryManagerService.ClearIOStatistics();
                         PrintRecordsInOrder();
                         break;
                     case "btree":
+                        _memoryManagerService.ClearIOStatistics();
                         _bTreeDiskService.PrintBTree();
                         break;
                     default:
                         throw new InvalidOperationException("Unsupported print option");
                 }
+
                 break;
 
             default:
                 throw new InvalidOperationException("Unsupported command");
         }
+        _memoryManagerService.PrintIOStatistics();
     }
     
     private void PrintRecordsInOrder()
