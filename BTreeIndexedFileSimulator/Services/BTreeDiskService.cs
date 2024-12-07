@@ -147,7 +147,7 @@ public class BTreeDiskService : IBTreeDiskService
         // Handle splits iteratively
         while (currentNode.Keys.Count > 2 * Degree)
         {
-            if (TryCompensateNode(currentNode, parentsStack))
+            if (TryCompensateNode(currentNode, parentsStack) && _appSettings.EnableNodeCompensation)
             {
                 break; // Stop processing further if compensation succeeded
             }
