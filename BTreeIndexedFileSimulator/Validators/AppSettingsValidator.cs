@@ -19,7 +19,7 @@ public class AppSettingsValidator : AbstractValidator<AppSettings>
             .WithMessage("DataSource must be one of: 'GenerateRandomly', 'ProvideManually', or 'LoadFromFile'.");
 
         RuleFor(x => x.NumberOfRecordsToGenerate)
-            .NotEmpty().GreaterThan(0).When(x => x.DataSource == "GenerateRandomly")
+            .NotEmpty().GreaterThan(-1).When(x => x.DataSource == "GenerateRandomly")
             .WithMessage("NumberOfRecordsToGenerate must be specified and greater than 0 when DataSource is 'GenerateRandomly'.");
 
         RuleFor(x => x.FilePathToRecords)
