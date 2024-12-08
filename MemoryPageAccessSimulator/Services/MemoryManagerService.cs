@@ -98,4 +98,10 @@ public class MemoryManagerService : IMemoryManagerService
                           $"BTreePages R({PageIOStatistics.TotalRecordsPagesReads}) W({PageIOStatistics.TotalBTreePagesWrites}), " +
                           $"RecordsPages R({PageIOStatistics.TotalRecordsPagesReads}) W({PageIOStatistics.TotalRecordsPagesWrites})");
     }
+
+    public void DeletePageFromDisk(Guid pageID)
+    {
+        var filePath = $"Disk/{pageID}.bin";
+        File.Delete(filePath);
+    }
 }

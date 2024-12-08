@@ -149,15 +149,22 @@ public class IndexBasedFileSimulator
             case CommandType.Delete:
                 var keyToDelete = command.Parameters[0];
                 _memoryManagerService.ClearIOStatistics();
-                // Handle delete (e.g., _bTreeDiskService.DeleteRecord(...))
-                Console.WriteLine($"Delete key {keyToDelete}");
+                if (_bTreeDiskService.DeleteRecord(Convert.ToUInt32(keyToDelete)))
+                {
+                    Console.WriteLine($"Deleted key {keyToDelete}");
+                    
+                }
+                else
+                {
+                    Console.WriteLine($"Key {keyToDelete} not found");
+                }
                 break;
 
             case CommandType.Update:
                 var keyToUpdate = command.Parameters[0];
                 var newValue = command.Parameters[1];
                 // Handle update (e.g., _bTreeDiskService.UpdateRecord(...))
-                Console.WriteLine($"Update key {keyToUpdate} with value {newValue}");
+                Console.WriteLine($"Updated key {keyToUpdate} with value {newValue}");
                 break;
             
             case CommandType.Print:

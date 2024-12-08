@@ -27,7 +27,7 @@ public class BTreeDiskService : IBTreeDiskService
         // Check if the root is empty
         if (rootNode == null || rootNode.Keys.Count == 0)
         {
-            rootNode = InitializeNewRoot(record, pageID, offset);
+            InitializeNewRoot(record, pageID, offset);
             return;
         }
 
@@ -68,23 +68,19 @@ public class BTreeDiskService : IBTreeDiskService
         return (Guid.Empty, 0);
     }
 
-    private BTreeNodePage InitializeNewRoot(Record record, Guid pageID, uint offset)
+    private void InitializeNewRoot(Record record, Guid pageID, uint offset)
     {
         var rootNode = new BTreeNodePage(Guid.NewGuid(), isLeaf: true, isRoot: true);
         rootNode.Keys.Add(record.Key);
         rootNode.Addresses.Add((pageID, offset));
 
-        // Save the root node to disk
         _memoryManagerService.SavePageToFile(
             BTreeNodePageSerializer.Serialize(rootNode),
             rootNode.PageID,
             PageType.BTreeNode
         );
 
-        // Update the root in memory
         _memoryManagerService.SetRootPage(rootNode);
-
-        return rootNode;
     }
 
     private BTreeNodePage HandleRootSplit(BTreeNodePage rootNode, SplitResult splitResult)
@@ -96,14 +92,11 @@ public class BTreeDiskService : IBTreeDiskService
         newRoot.ChildPointers.Add(rootNode.PageID); // Old root becomes the left child
         newRoot.ChildPointers.Add(splitResult.NewNode.PageID); // New sibling becomes the right child
 
-        // Save the new root to disk
         _memoryManagerService.SavePageToFile(
             BTreeNodePageSerializer.Serialize(newRoot),
             newRoot.PageID,
             PageType.BTreeNode
         );
-
-        // Update the root in memory
         _memoryManagerService.SetRootPage(newRoot);
 
         return newRoot;
@@ -147,7 +140,7 @@ public class BTreeDiskService : IBTreeDiskService
         // Handle splits iteratively
         while (currentNode.Keys.Count > 2 * Degree)
         {
-            if (TryCompensateNode(currentNode, parentsStack) && _appSettings.EnableNodeCompensation)
+            if (TryCompensateNodeForInsertion(currentNode, parentsStack) && _appSettings.EnableNodeCompensation)
             {
                 break; // Stop processing further if compensation succeeded
             }
@@ -179,7 +172,7 @@ public class BTreeDiskService : IBTreeDiskService
         return null; // No split propagated to the root
     }
     
-    private bool TryCompensateNode(BTreeNodePage node, Stack<(BTreeNodePage Node, int ChildIndex)> parentsStack)
+    private bool TryCompensateNodeForInsertion(BTreeNodePage node, Stack<(BTreeNodePage Node, int ChildIndex)> parentsStack)
     {
         if (!parentsStack.TryPeek(out var parentAndIndex))
         {
@@ -195,8 +188,7 @@ public class BTreeDiskService : IBTreeDiskService
 
             if (leftSibling.Keys.Count < 2 * Degree)
             {
-                // Perform compensation with the left sibling
-                PerformLeftCompensation(node, leftSibling, parentNode, childIndexInParent);
+                PerformLeftCompensationForInsertion(node, leftSibling, parentNode, childIndexInParent);
                 return true;
             }
         }
@@ -208,8 +200,7 @@ public class BTreeDiskService : IBTreeDiskService
 
             if (rightSibling.Keys.Count < 2 * Degree)
             {
-                // Perform compensation with the right sibling
-                PerformRightCompensation(node, rightSibling, parentNode, childIndexInParent);
+                PerformRightCompensationForInsertion(node, rightSibling, parentNode, childIndexInParent);
                 return true;
             }
         }
@@ -218,7 +209,7 @@ public class BTreeDiskService : IBTreeDiskService
         
     }
     
-    private void PerformLeftCompensation(
+    private void PerformLeftCompensationForInsertion(
         BTreeNodePage currentNode, 
         BTreeNodePage leftSibling, 
         BTreeNodePage parentNode, 
@@ -228,7 +219,7 @@ public class BTreeDiskService : IBTreeDiskService
         var parentKey = parentNode.Keys[childIndexInParent - 1];
         leftSibling.Keys.Add(parentKey);
         leftSibling.Addresses.Add(parentNode.Addresses[childIndexInParent - 1]);
-
+        
         // Move the smallest key from the current node to the parent
         var movedKey = currentNode.Keys.First();
         parentNode.Keys[childIndexInParent - 1] = movedKey;
@@ -247,27 +238,44 @@ public class BTreeDiskService : IBTreeDiskService
             currentNode.ChildPointers.RemoveAt(0);
         }
 
-        // Save changes to disk
-        _memoryManagerService.SavePageToFile(BTreeNodePageSerializer.Serialize(leftSibling), leftSibling.PageID, PageType.BTreeNode);
-        _memoryManagerService.SavePageToFile(BTreeNodePageSerializer.Serialize(currentNode), currentNode.PageID, PageType.BTreeNode);
-        _memoryManagerService.SavePageToFile(BTreeNodePageSerializer.Serialize(parentNode), parentNode.PageID, PageType.BTreeNode);
+        SaveNodesToDiskAfterCompensation(currentNode, leftSibling, parentNode);
     }
     
-    private void PerformRightCompensation(
+    private void PerformRightCompensationForInsertion(
         BTreeNodePage currentNode, 
         BTreeNodePage rightSibling, 
         BTreeNodePage parentNode, 
         int childIndexInParent)
     {
+        uint parentKey;
+        (Guid pageID, uint offset) parentAddress;
+
         // Take the key from the parent and move it to the right sibling
-        var parentKey = parentNode.Keys[childIndexInParent + 1];
+        if (parentNode.Keys.Count == 1)
+        {
+            parentKey = parentNode.Keys[0];
+            parentAddress = parentNode.Addresses[0];
+        }
+        else
+        {
+            parentKey = parentNode.Keys[childIndexInParent + 1];
+            parentAddress = parentNode.Addresses[childIndexInParent + 1];
+        }
         rightSibling.Keys.Add(parentKey);
-        rightSibling.Addresses.Add(parentNode.Addresses[childIndexInParent + 1]);
+        rightSibling.Addresses.Add(parentAddress);
 
         // Move the smallest key from the current node to the parent
         var movedKey = currentNode.Keys.Last();
-        parentNode.Keys[childIndexInParent + 1] = movedKey;
-        parentNode.Addresses[childIndexInParent + 1] = currentNode.Addresses.Last();
+        if (parentNode.Keys.Count == 1)
+        {
+            parentNode.Keys[0] = movedKey;
+            parentNode.Addresses[0] = currentNode.Addresses.Last();
+        }
+        else
+        {
+            parentNode.Keys[childIndexInParent + 1] = movedKey;
+            parentNode.Addresses[childIndexInParent + 1] = currentNode.Addresses.Last();
+        }
 
         // Remove the moved key and address from the current node
         currentNode.Keys.RemoveAt(currentNode.Keys.Count-1);
@@ -282,10 +290,7 @@ public class BTreeDiskService : IBTreeDiskService
             currentNode.ChildPointers.RemoveAt(currentNode.ChildPointers.Count-1);
         }
 
-        // Save changes to disk
-        _memoryManagerService.SavePageToFile(BTreeNodePageSerializer.Serialize(rightSibling), rightSibling.PageID, PageType.BTreeNode);
-        _memoryManagerService.SavePageToFile(BTreeNodePageSerializer.Serialize(currentNode), currentNode.PageID, PageType.BTreeNode);
-        _memoryManagerService.SavePageToFile(BTreeNodePageSerializer.Serialize(parentNode), parentNode.PageID, PageType.BTreeNode);
+        SaveNodesToDiskAfterCompensation(currentNode, rightSibling, parentNode);
     }
     
     private SplitResult SplitNode(BTreeNodePage node)
@@ -325,7 +330,7 @@ public class BTreeDiskService : IBTreeDiskService
 
     public void PrintBTree()
     {
-        var rootNode = _memoryManagerService.GetRootPage();
+        var rootNode = _memoryManagerService.GetRootPage(); 
 
         if (rootNode == null)
         {
@@ -333,38 +338,322 @@ public class BTreeDiskService : IBTreeDiskService
             return;
         }
 
-        // Stack for iterative traversal
-        var stack = new Stack<(Guid PageID, int Level)>();
-        stack.Push((rootNode.PageID, 0));
+        var stack = new Stack<(BTreeNodePage Node, int Level)>();
+        stack.Push((rootNode, 0));
 
         while (stack.Count > 0)
         {
-            var (pageID, level) = stack.Pop();
+            var (node, level) = stack.Pop();
 
-            // Load the node from disk
-            var node = _memoryManagerService.GetBTreePageFromDisk(pageID);
+            Console.WriteLine($"{new string(' ', level * 2)}Level {level}, Page {node.PageID}: Keys = [{string.Join(", ", node.Keys)}]");
 
-            // Print the current node
-            Console.WriteLine($"{new string(' ', level * 2)}Level {level}, Page {pageID}: Keys = [{string.Join(", ", node.Keys)}]");
-
-            // Add child nodes to the stack if not a leaf
             if (!node.IsLeaf)
             {
                 for (var i = node.ChildPointers.Count - 1; i >= 0; i--)
                 {
-                    stack.Push((node.ChildPointers[i], level + 1));
+                    var childNode = _memoryManagerService.GetBTreePageFromDisk(node.ChildPointers[i]); // Load child nodes from disk
+                    stack.Push((childNode, level + 1));
                 }
             }
         }
     }
-    
-    public void PrintRecordsInOrder()
+
+    public bool DeleteRecord(uint key)
     {
-        throw new NotImplementedException();
+        var parentsStack = new Stack<(BTreeNodePage Node, int ChildIndex)>();
+
+        var currentNode = _memoryManagerService.GetRootPage();
+        if (currentNode == null) return false;
+
+        while (!currentNode.IsLeaf)
+        {
+            var childIndex = currentNode.Keys.BinarySearch(key);
+            if (childIndex >= 0) // Key found in internal node
+            {
+                var nodeWithSuccessorKey = IterateToNodeWithSuccessorKey(currentNode, parentsStack);
+            
+                var successorKey = nodeWithSuccessorKey.Keys.First();
+                var successorKeyAddress = nodeWithSuccessorKey.Addresses.First();
+                nodeWithSuccessorKey.Keys.RemoveAt(0);
+                nodeWithSuccessorKey.Addresses.RemoveAt(0);
+            
+                if (nodeWithSuccessorKey.Keys.Count >= Degree) return true;
+
+                if (TryCompensateNodeForDeletion(nodeWithSuccessorKey, parentsStack)) return true;
+
+                MergeNodes(nodeWithSuccessorKey, parentsStack);
+                return true;
+            }
+            childIndex = ~childIndex;
+            var childPageID = currentNode.ChildPointers[childIndex];
+            parentsStack.Push((currentNode, childIndex));
+            currentNode = _memoryManagerService.GetBTreePageFromDisk(childPageID);
+        }
+
+        var leafIndex = currentNode.Keys.BinarySearch(key);
+        if (leafIndex >= 0) // Key found in leaf node
+        {
+            currentNode.Keys.RemoveAt(leafIndex);
+            currentNode.Addresses.RemoveAt(leafIndex);
+
+            if (currentNode.Keys.Count < Degree)
+            {
+                if (TryCompensateNodeForDeletion(currentNode, parentsStack))
+                {
+                    return true;
+                }
+
+                MergeNodes(currentNode, parentsStack);
+            }
+
+            return true;
+        }
+
+        return false; // Key not found
     }
 
-    public void PrintRecordsByPage()
+    private void MergeNodes(BTreeNodePage node, Stack<(BTreeNodePage Node, int ChildIndex)> parentsStack)
     {
-        throw new NotImplementedException();
+        while (true)
+        {
+            if (!parentsStack.TryPop(out var parentAndIndex))
+            {
+                if (node.Keys.Count != 0 || node.IsLeaf) return;
+                var newRootPageID = node.ChildPointers.First();
+                var newRoot = _memoryManagerService.GetBTreePageFromDisk(newRootPageID);
+                newRoot.IsRoot = true;
+
+                _memoryManagerService.SavePageToFile(BTreeNodePageSerializer.Serialize(newRoot), newRoot.PageID, PageType.BTreeNode);
+                _memoryManagerService.SetRootPage(newRoot);
+
+                return;
+            }
+
+            var (parentNode, childIndexInParent) = parentAndIndex;
+
+            if (childIndexInParent > 0)
+            {
+                // Merge with left sibling
+                var leftSiblingPageID = parentNode.ChildPointers[childIndexInParent - 1];
+                var leftSibling = _memoryManagerService.GetBTreePageFromDisk(leftSiblingPageID);
+
+                // Move a parent key into left sibling
+                leftSibling.Keys.Add(parentNode.Keys[childIndexInParent - 1]);
+                leftSibling.Addresses.Add(parentNode.Addresses[childIndexInParent - 1]);
+
+                // Move all keys and children from the current node to left sibling
+                leftSibling.Keys.AddRange(node.Keys);
+                leftSibling.Addresses.AddRange(node.Addresses);
+                if (!node.IsLeaf)
+                {
+                    leftSibling.ChildPointers.AddRange(node.ChildPointers);
+                }
+
+                // Remove the merged key from parent
+                parentNode.Keys.RemoveAt(childIndexInParent - 1);
+                parentNode.Addresses.RemoveAt(childIndexInParent - 1);
+                parentNode.ChildPointers.RemoveAt(childIndexInParent);
+
+                // Save updated nodes to disk
+                _memoryManagerService.SavePageToFile(BTreeNodePageSerializer.Serialize(leftSibling), leftSibling.PageID, PageType.BTreeNode);
+                _memoryManagerService.SavePageToFile(BTreeNodePageSerializer.Serialize(parentNode), parentNode.PageID, PageType.BTreeNode);
+
+                if (parentNode.Keys.Count < Degree)
+                {
+                    node = parentNode;
+                    continue;
+                }
+            }
+            else if (childIndexInParent < parentNode.ChildPointers.Count - 1)
+            {
+                // Merge with right sibling
+                var rightSiblingPageID = parentNode.ChildPointers[childIndexInParent + 1];
+                var rightSibling = _memoryManagerService.GetBTreePageFromDisk(rightSiblingPageID);
+
+                // Move a parent key into the current node
+                node.Keys.Add(parentNode.Keys[childIndexInParent]);
+                node.Addresses.Add(parentNode.Addresses[childIndexInParent]);
+
+                // Move all keys and children from right sibling to current node
+                node.Keys.AddRange(rightSibling.Keys);
+                node.Addresses.AddRange(rightSibling.Addresses);
+                if (!rightSibling.IsLeaf)
+                {
+                    node.ChildPointers.AddRange(rightSibling.ChildPointers);
+                }
+
+                // Remove the merged key from parent
+                parentNode.Keys.RemoveAt(childIndexInParent);
+                parentNode.Addresses.RemoveAt(childIndexInParent);
+                parentNode.ChildPointers.RemoveAt(childIndexInParent + 1);
+
+                // Save updated nodes to disk
+                _memoryManagerService.SavePageToFile(BTreeNodePageSerializer.Serialize(node), node.PageID, PageType.BTreeNode);
+                _memoryManagerService.SavePageToFile(BTreeNodePageSerializer.Serialize(parentNode), parentNode.PageID, PageType.BTreeNode);
+
+                if (parentNode.Keys.Count < Degree)
+                {
+                    node = parentNode;
+                    continue;
+                }
+            }
+
+            break;
+        }
+    }
+
+
+    private BTreeNodePage IterateToNodeWithSuccessorKey(BTreeNodePage node, Stack<(BTreeNodePage Node, int ChildIndex)> parentsStack)
+    {
+        while (!node.IsLeaf)
+        {
+            parentsStack.Push((node, 0));
+            var childPageID = node.ChildPointers[0];
+            node = _memoryManagerService.GetBTreePageFromDisk(childPageID);
+        }
+        return node;
+    }
+    
+    private bool TryCompensateNodeForDeletion(BTreeNodePage node, Stack<(BTreeNodePage Node, int ChildIndex)> parentsStack)
+    {
+        if (!parentsStack.TryPeek(out var parentAndIndex))
+        {
+            return false; // No parent means any compensation possible
+        }
+
+        var (parentNode, childIndexInParent) = parentAndIndex;
+
+        // Try borrowing from the left sibling
+        if (childIndexInParent > 0)
+        {
+            var leftSiblingPageID = parentNode.ChildPointers[childIndexInParent - 1];
+            var leftSibling = _memoryManagerService.GetBTreePageFromDisk(leftSiblingPageID);
+
+            if (leftSibling.Keys.Count > Degree) // Can borrow keys from left sibling
+            {
+                BorrowFromLeftSibling(node, leftSibling, parentNode, childIndexInParent);
+                return true;
+            }
+        }
+
+        // Try borrowing from the right sibling
+        if (childIndexInParent < parentNode.ChildPointers.Count - 1)
+        {
+            var rightSiblingPageID = parentNode.ChildPointers[childIndexInParent + 1];
+            var rightSibling = _memoryManagerService.GetBTreePageFromDisk(rightSiblingPageID);
+
+            if (rightSibling.Keys.Count > Degree) // Can borrow keys from the right sibling
+            {
+                BorrowFromRightSibling(node, rightSibling, parentNode, childIndexInParent);
+                return true;
+            }
+        }
+
+        return false; // No compensation possible
+    }
+    
+    private void BorrowFromRightSibling(
+        BTreeNodePage currentNode, 
+        BTreeNodePage rightSibling, 
+        BTreeNodePage parentNode, 
+        int childIndexInParent)
+    {
+        MoveParentKeyToNode(currentNode, parentNode, childIndexInParent, fromRight: true);
+
+        MoveSiblingKeyToParent(rightSibling, parentNode, childIndexInParent, fromRight: true);
+
+        if (!rightSibling.IsLeaf)
+        {
+            MoveChildPointer(currentNode, rightSibling, fromRight: true);
+        }
+
+        SaveNodesToDiskAfterCompensation(currentNode, rightSibling, parentNode);
+    }
+
+    private void BorrowFromLeftSibling(
+        BTreeNodePage currentNode, 
+        BTreeNodePage leftSibling, 
+        BTreeNodePage parentNode, 
+        int childIndexInParent)
+    {
+        MoveParentKeyToNode(currentNode, parentNode, childIndexInParent - 1, fromRight: false);
+
+        MoveSiblingKeyToParent(leftSibling, parentNode, childIndexInParent - 1, fromRight: false);
+
+        if (!leftSibling.IsLeaf)
+        {
+            MoveChildPointer(currentNode, leftSibling, fromRight: false);
+        }
+
+        SaveNodesToDiskAfterCompensation(currentNode, leftSibling, parentNode);
+    }
+
+    private static void MoveParentKeyToNode(BTreeNodePage currentNode, BTreeNodePage parentNode, int parentIndex, bool fromRight)
+    {
+        var parentKey = parentNode.Keys[parentIndex];
+        var parentAddress = parentNode.Addresses[parentIndex];
+
+        if (fromRight)
+        {
+            currentNode.Keys.Add(parentKey);
+            currentNode.Addresses.Add(parentAddress);
+        }
+        else
+        {
+            currentNode.Keys.Insert(0, parentKey);
+            currentNode.Addresses.Insert(0, parentAddress);
+        }
+    }
+    
+    private static void MoveSiblingKeyToParent(BTreeNodePage siblingNode, BTreeNodePage parentNode, int parentIndex, bool fromRight)
+    {
+        if (fromRight)
+        {
+            var borrowedKey = siblingNode.Keys.First();
+            var borrowedAddress = siblingNode.Addresses.First();
+            parentNode.Keys[parentIndex] = borrowedKey;
+            parentNode.Addresses[parentIndex] = borrowedAddress;
+
+            siblingNode.Keys.RemoveAt(0);
+            siblingNode.Addresses.RemoveAt(0);
+        }
+        else
+        {
+            var borrowedKey = siblingNode.Keys.Last();
+            var borrowedAddress = siblingNode.Addresses.Last();
+            parentNode.Keys[parentIndex] = borrowedKey;
+            parentNode.Addresses[parentIndex] = borrowedAddress;
+
+            siblingNode.Keys.RemoveAt(siblingNode.Keys.Count - 1);
+            siblingNode.Addresses.RemoveAt(siblingNode.Addresses.Count - 1);
+        }
+    }
+    
+    private static void MoveChildPointer(BTreeNodePage currentNode, BTreeNodePage siblingNode, bool fromRight)
+    {
+        if (fromRight)
+        {
+            var borrowedChildPointer = siblingNode.ChildPointers.First();
+            currentNode.ChildPointers.Add(borrowedChildPointer);
+            siblingNode.ChildPointers.RemoveAt(0);
+        }
+        else
+        {
+            var borrowedChildPointer = siblingNode.ChildPointers.Last();
+            currentNode.ChildPointers.Insert(0, borrowedChildPointer);
+            siblingNode.ChildPointers.RemoveAt(siblingNode.ChildPointers.Count - 1);
+        }
+    }
+    
+    private void SaveNodesToDiskAfterCompensation(BTreeNodePage currentNode, BTreeNodePage siblingNode, BTreeNodePage parentNode)
+    {
+        _memoryManagerService.SavePageToFile(BTreeNodePageSerializer.Serialize(currentNode), currentNode.PageID, PageType.BTreeNode);
+        _memoryManagerService.SavePageToFile(BTreeNodePageSerializer.Serialize(siblingNode), siblingNode.PageID, PageType.BTreeNode);
+        _memoryManagerService.SavePageToFile(BTreeNodePageSerializer.Serialize(parentNode), parentNode.PageID, PageType.BTreeNode);
+
+        if (parentNode.IsRoot)
+        {
+            _memoryManagerService.SetRootPage(parentNode);
+        }
     }
 }
