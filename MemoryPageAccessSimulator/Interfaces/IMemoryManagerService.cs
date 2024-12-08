@@ -16,4 +16,5 @@ public interface IMemoryManagerService
     public void ClearIOStatistics();
     public void PrintIOStatistics();
     public void DeletePageFromDisk(Guid pageID);
+    public void PrintIOSummary();
 }

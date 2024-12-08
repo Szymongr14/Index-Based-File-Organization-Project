@@ -38,7 +38,7 @@ public abstract class Program
         // Start the application
         var indexBasedFileSimulator = serviceProvider.GetRequiredService<IndexBasedFileSimulator>();
         indexBasedFileSimulator.Start();
-        logger.LogInformation("Application finished successfully. Records have been sorted!");
+        logger.LogInformation("Application finished successfully. All commands were run.");
     }
     
     private static void ConfigureServices(ServiceCollection services, AppSettings configurationModel)

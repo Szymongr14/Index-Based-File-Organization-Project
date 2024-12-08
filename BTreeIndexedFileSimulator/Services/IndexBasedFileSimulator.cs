@@ -35,7 +35,9 @@ public class IndexBasedFileSimulator
     {
         ProcessInitialRecords();
         ProcessInstructions();
+        _memoryManagerService.PrintIOSummary();
     }
+    
     
     private void ProcessInitialRecords()
     {
@@ -121,11 +123,7 @@ public class IndexBasedFileSimulator
     private Record? FindRecord(uint key)
     {
         var (pageID, offset) = _bTreeDiskService.FindAddressOfKey(key);
-        if (pageID == Guid.Empty)
-        {
-            _logger.LogError($"Record with key {key} not found.");
-            return null;
-        }
+        if (pageID == Guid.Empty) return null;
 
         var pageWithRecord = _memoryManagerService.GetRecordsPageFromDisk(pageID);
         var recordIndex = (int)(offset - RecordsPageHeaderSizeInBytes) / _appSettings.RecordSizeInBytes;
@@ -135,6 +133,7 @@ public class IndexBasedFileSimulator
     
     private void ExecuteCommand(Command command)
     {
+        Console.WriteLine("------------------------------------------------------------------------");
         switch (command.Type)
         {
             case CommandType.Insert:
@@ -148,7 +147,11 @@ public class IndexBasedFileSimulator
                 var keyToFind = command.Parameters[0];
                 _memoryManagerService.ClearIOStatistics();
                 var record = FindRecord(Convert.ToUInt32(keyToFind));
-                if (record == null) break;
+                if (record == null)
+                {
+                    _logger.LogError($"Record with key {keyToFind} not found");
+                    break;
+                }
                 Console.WriteLine($"Found record with key {keyToFind}: X:{record.X}, Y:{record.Y}");
                 break;
 
@@ -162,7 +165,7 @@ public class IndexBasedFileSimulator
                 }
                 else
                 {
-                    _logger.LogError($"Key {keyToDelete} not found");
+                    _logger.LogError($"Key2 {keyToDelete} not found");
                 }
                 break;
 
@@ -173,7 +176,7 @@ public class IndexBasedFileSimulator
                 
                 if(_bTreeDiskService.FindAddressOfKey(Convert.ToUInt32(keyToUpdate)).pageId == Guid.Empty)
                 {
-                    _logger.LogError($"Key {keyToUpdate} not found");
+                    _logger.LogError($"Key1 {keyToUpdate} not found");
                     break;
                 }
                 
@@ -228,7 +231,7 @@ public class IndexBasedFileSimulator
                 foreach (var address in node.Addresses)
                 {
                     var record = GetRecordFromAddress(address);
-                    Console.WriteLine($"Key: {record.Key}, X: {record.X}, Y: {record.Y}");
+                    Console.WriteLine($"Key: {record.Key}, X: {record.X}, Y: {record.Y}, address: {address.pageID}, {address.offset}");
                 }
             }
             else if (i < node.ChildPointers.Count)
@@ -236,7 +239,7 @@ public class IndexBasedFileSimulator
                 if (i > 0)
                 {
                     var record = GetRecordFromAddress(node.Addresses[i - 1]);
-                    Console.WriteLine($"Key: {record.Key}, X: {record.X}, Y: {record.Y}");
+                    Console.WriteLine($"Key: {record.Key}, X: {record.X}, Y: {record.Y}, address: {node.Addresses[i-1].pageID}, {node.Addresses[i-1].offset}");
                 }
                 stack.Push((node, i + 1));
                 stack.Push((_memoryManagerService.GetBTreePageFromDisk(node.ChildPointers[i]), 0));

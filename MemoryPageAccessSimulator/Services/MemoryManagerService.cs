@@ -98,6 +98,12 @@ public class MemoryManagerService : IMemoryManagerService
                           $"BTreePages R({PageIOStatistics.TotalRecordsPagesReads}) W({PageIOStatistics.TotalBTreePagesWrites}), " +
                           $"RecordsPages R({PageIOStatistics.TotalRecordsPagesReads}) W({PageIOStatistics.TotalRecordsPagesWrites})");
     }
+    
+    public void PrintIOSummary()
+    {
+        Console.WriteLine("------------------------------------------------------------------------");
+        Console.WriteLine($"Total Pages Reads: {PageIOStatistics.TotalPagesReads}, Total Pages Writes: {PageIOStatistics.TotalPagesWrites}");
+    }
 
     public void DeletePageFromDisk(Guid pageID)
     {
