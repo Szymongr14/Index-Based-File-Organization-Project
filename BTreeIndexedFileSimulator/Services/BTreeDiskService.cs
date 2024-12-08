@@ -242,52 +242,36 @@ public class BTreeDiskService : IBTreeDiskService
     }
     
     private void PerformRightCompensationForInsertion(
-        BTreeNodePage currentNode, 
-        BTreeNodePage rightSibling, 
-        BTreeNodePage parentNode, 
+        BTreeNodePage currentNode,
+        BTreeNodePage rightSibling,
+        BTreeNodePage parentNode,
         int childIndexInParent)
     {
         uint parentKey;
         (Guid pageID, uint offset) parentAddress;
 
-        // Take the key from the parent and move it to the right sibling
-        if (parentNode.Keys.Count == 1)
-        {
-            parentKey = parentNode.Keys[0];
-            parentAddress = parentNode.Addresses[0];
-        }
-        else
-        {
-            parentKey = parentNode.Keys[childIndexInParent];
-            parentAddress = parentNode.Addresses[childIndexInParent];
-        }
-        rightSibling.Keys.Add(parentKey);
-        rightSibling.Addresses.Add(parentAddress);
+        // Take the key from the parent and move it to the right sibling (as the first element)
+        parentKey = parentNode.Keys[childIndexInParent];
+        parentAddress = parentNode.Addresses[childIndexInParent];
+        rightSibling.Keys.Insert(0, parentKey); // Insert at the beginning
+        rightSibling.Addresses.Insert(0, parentAddress); // Insert at the beginning
 
-        // Move the smallest key from the current node to the parent
+        // Move the largest key from the current node to the parent
         var movedKey = currentNode.Keys.Last();
-        if (parentNode.Keys.Count == 1)
-        {
-            parentNode.Keys[0] = movedKey;
-            parentNode.Addresses[0] = currentNode.Addresses.Last();
-        }
-        else
-        {
-            parentNode.Keys[childIndexInParent] = movedKey;
-            parentNode.Addresses[childIndexInParent] = currentNode.Addresses.Last();
-        }
+        parentNode.Keys[childIndexInParent] = movedKey;
+        parentNode.Addresses[childIndexInParent] = currentNode.Addresses.Last();
 
         // Remove the moved key and address from the current node
-        currentNode.Keys.RemoveAt(currentNode.Keys.Count-1);
-        currentNode.Addresses.RemoveAt(currentNode.Addresses.Count-1);
+        currentNode.Keys.RemoveAt(currentNode.Keys.Count - 1);
+        currentNode.Addresses.RemoveAt(currentNode.Addresses.Count - 1);
 
         // If it's an internal node, move the appropriate child pointer
         if (!currentNode.IsLeaf)
         {
-            // Move the first child pointer from the current node to the left sibling
+            // Move the last child pointer from the current node to the beginning of the right sibling
             var movedChildPointer = currentNode.ChildPointers.Last();
-            rightSibling.ChildPointers.Add(movedChildPointer);
-            currentNode.ChildPointers.RemoveAt(currentNode.ChildPointers.Count-1);
+            rightSibling.ChildPointers.Insert(0, movedChildPointer); // Insert at the beginning
+            currentNode.ChildPointers.RemoveAt(currentNode.ChildPointers.Count - 1);
         }
 
         SaveNodesToDiskAfterCompensation(currentNode, rightSibling, parentNode);
@@ -370,7 +354,7 @@ public class BTreeDiskService : IBTreeDiskService
             var childIndex = currentNode.Keys.BinarySearch(key);
             if (childIndex >= 0) // Key found in internal node
             {
-                var nodeWithSuccessorKey = IterateToNodeWithSuccessorKey(currentNode, parentsStack);
+                var nodeWithSuccessorKey = IterateToNodeWithSuccessorKey(currentNode, parentsStack, childIndex);
             
                 var successorKey = nodeWithSuccessorKey.Keys.First();
                 var successorKeyAddress = nodeWithSuccessorKey.Addresses.First();
@@ -519,14 +503,23 @@ public class BTreeDiskService : IBTreeDiskService
     }
 
 
-    private BTreeNodePage IterateToNodeWithSuccessorKey(BTreeNodePage node, Stack<(BTreeNodePage Node, int ChildIndex)> parentsStack)
+    private BTreeNodePage IterateToNodeWithSuccessorKey(BTreeNodePage node, Stack<(BTreeNodePage Node, int ChildIndex)> parentsStack, int childIndex)
     {
+        // Push the initial node and child index to the stack
+        parentsStack.Push((node, childIndex + 1)); // Increment to indicate we are moving to the right subtree
+
+        // Move to the right subtree
+        var childPageID = node.ChildPointers[childIndex + 1];
+        node = _memoryManagerService.GetBTreePageFromDisk(childPageID);
+
+        // Traverse to the leftmost child in the subtree
         while (!node.IsLeaf)
         {
             parentsStack.Push((node, 0));
-            var childPageID = node.ChildPointers[0];
+            childPageID = node.ChildPointers[0];
             node = _memoryManagerService.GetBTreePageFromDisk(childPageID);
         }
+
         return node;
     }
     

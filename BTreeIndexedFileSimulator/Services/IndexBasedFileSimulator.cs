@@ -184,7 +184,6 @@ public class IndexBasedFileSimulator
                 if (_bTreeDiskService.DeleteRecord(Convert.ToUInt32(keyToDelete)))
                 {
                     Console.WriteLine($"Deleted key {keyToDelete}");
-                    
                 }
                 else
                 {
@@ -242,33 +241,59 @@ public class IndexBasedFileSimulator
     
     private void PrintRecordsInOrder()
     {
-        var stack = new Stack<(BTreeNodePage, int)>();
+        var stack = new Stack<(BTreeNodePage Node, int ChildIndex)>();
         var rootNode = _memoryManagerService.GetRootPage();
-        stack.Push((rootNode, 0)!);
+
+        if (rootNode == null)
+        {
+            Console.WriteLine("The B-Tree is empty.");
+            return;
+        }
+
+        stack.Push((rootNode, 0));
+        uint previousKey = uint.MinValue;
 
         while (stack.Count > 0)
         {
-            var (node, i) = stack.Pop();
+            var (node, index) = stack.Pop();
+
             if (node.IsLeaf)
             {
+                // Traverse all records in the leaf node
                 foreach (var address in node.Addresses)
                 {
                     var record = GetRecordFromAddress(address);
-                    Console.WriteLine($"Key: {record.Key}, X: {record.X}, Y: {record.Y}, address: {address.pageID}, {address.offset}");
+                    if (previousKey > record.Key)
+                    {
+                        Console.WriteLine($"ERROR: Previous Key {previousKey} > Current Key {record.Key}");
+                    }
+                    previousKey = record.Key;
+                    // Console.WriteLine($"Key: {record.Key}, X: {record.X}, Y: {record.Y}");
                 }
             }
-            else if (i < node.ChildPointers.Count)
+            else if (index < node.ChildPointers.Count)
             {
-                if (i > 0)
+                // Push the next child for further traversal
+                stack.Push((node, index + 1));
+
+                // Visit the leftmost child and its corresponding key
+                var childNode = _memoryManagerService.GetBTreePageFromDisk(node.ChildPointers[index]);
+                stack.Push((childNode, 0));
+
+                if (index > 0)
                 {
-                    var record = GetRecordFromAddress(node.Addresses[i - 1]);
-                    Console.WriteLine($"Key: {record.Key}, X: {record.X}, Y: {record.Y}, address: {node.Addresses[i-1].pageID}, {node.Addresses[i-1].offset}");
+                    var record = GetRecordFromAddress(node.Addresses[index - 1]);
+                    if (previousKey > record.Key)
+                    {
+                        Console.WriteLine($"ERROR: Previous Key {previousKey} > Current Key {record.Key}");
+                    }
+                    previousKey = record.Key;
+                    // Console.WriteLine($"Key: {record.Key}, X: {record.X}, Y: {record.Y}");
                 }
-                stack.Push((node, i + 1));
-                stack.Push((_memoryManagerService.GetBTreePageFromDisk(node.ChildPointers[i]), 0));
             }
         }
     }
+
     
     private Record GetRecordFromAddress((Guid pageID, uint offset) address)
     {
