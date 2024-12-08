@@ -376,7 +376,22 @@ public class BTreeDiskService : IBTreeDiskService
                 var successorKeyAddress = nodeWithSuccessorKey.Addresses.First();
                 nodeWithSuccessorKey.Keys.RemoveAt(0);
                 nodeWithSuccessorKey.Addresses.RemoveAt(0);
-            
+                currentNode.Keys[childIndex] = successorKey;
+                currentNode.Addresses[childIndex] = successorKeyAddress;
+                
+                _memoryManagerService.SavePageToFile(
+                    BTreeNodePageSerializer.Serialize(currentNode),
+                    currentNode.PageID,
+                    PageType.BTreeNode
+                );
+                
+                _memoryManagerService.SavePageToFile(
+                    BTreeNodePageSerializer.Serialize(nodeWithSuccessorKey),
+                    nodeWithSuccessorKey.PageID,
+                    PageType.BTreeNode
+                );
+                _memoryManagerService.AddFreeSpaceForRecord(successorKeyAddress);
+
                 if (nodeWithSuccessorKey.Keys.Count >= Degree) return true;
 
                 if (TryCompensateNodeForDeletion(nodeWithSuccessorKey, parentsStack)) return true;
@@ -393,6 +408,7 @@ public class BTreeDiskService : IBTreeDiskService
         var leafIndex = currentNode.Keys.BinarySearch(key);
         if (leafIndex >= 0) // Key found in leaf node
         {
+            _memoryManagerService.AddFreeSpaceForRecord(currentNode.Addresses[leafIndex]);
             currentNode.Keys.RemoveAt(leafIndex);
             currentNode.Addresses.RemoveAt(leafIndex);
 
@@ -656,4 +672,5 @@ public class BTreeDiskService : IBTreeDiskService
             _memoryManagerService.SetRootPage(parentNode);
         }
     }
+
 }

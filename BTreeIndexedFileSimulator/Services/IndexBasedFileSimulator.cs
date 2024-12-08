@@ -84,6 +84,12 @@ public class IndexBasedFileSimulator
 
     private void InsertRecordAndUpdateBTree(Record record)
     {
+        if(FindRecord(record.Key) != null)
+        {
+            _logger.LogError($"Record with key {record.Key} already exists.");
+            return;
+        }
+        
         var (pageID, offset) = _memoryManagerService.GetFreeSpaceForRecord();
         if (pageID == Guid.Empty)
         {
@@ -156,15 +162,32 @@ public class IndexBasedFileSimulator
                 }
                 else
                 {
-                    Console.WriteLine($"Key {keyToDelete} not found");
+                    _logger.LogError($"Key {keyToDelete} not found");
                 }
                 break;
 
             case CommandType.Update:
                 var keyToUpdate = command.Parameters[0];
-                var newValue = command.Parameters[1];
-                // Handle update (e.g., _bTreeDiskService.UpdateRecord(...))
-                Console.WriteLine($"Updated key {keyToUpdate} with value {newValue}");
+                var x = Convert.ToDouble(command.Parameters[1]);
+                var y = Convert.ToDouble(command.Parameters[2]);
+                
+                if(_bTreeDiskService.FindAddressOfKey(Convert.ToUInt32(keyToUpdate)).pageId == Guid.Empty)
+                {
+                    _logger.LogError($"Key {keyToUpdate} not found");
+                    break;
+                }
+                
+                if (command.Parameters.Count == 4) // new key value is provided
+                {
+                    var newKey = command.Parameters[3];
+                    UpdateRecord(Convert.ToUInt32(keyToUpdate), x, y, Convert.ToUInt32(newKey));
+                    Console.WriteLine($"Updated key {keyToUpdate} with values X:{x}, Y:{y} and new Key:{newKey}");
+                    break;
+                }
+
+                UpdateRecord(Convert.ToUInt32(keyToUpdate), x, y);
+                Console.WriteLine($"Updated key {keyToUpdate} with values X:{x}, Y:{y}");
+
                 break;
             
             case CommandType.Print:
@@ -226,5 +249,25 @@ public class IndexBasedFileSimulator
         var page = _memoryManagerService.GetRecordsPageFromDisk(address.pageID);
         var recordIndex = ((int)address.offset - RecordsPageHeaderSizeInBytes) / _appSettings.RecordSizeInBytes;
         return page.Records[recordIndex];
+    }
+    
+    private bool UpdateRecord(uint keyToUpdate,  double x, double y, uint? newKey = null)
+    {
+        if (newKey.HasValue)
+        {
+            if (!_bTreeDiskService.DeleteRecord(keyToUpdate)) return false;
+            InsertRecordAndUpdateBTree(new Record(x, y, newKey.Value));
+            return true;
+        }
+        
+        var addressOfKeyToUpdate = _bTreeDiskService.FindAddressOfKey(keyToUpdate);
+        if (addressOfKeyToUpdate.pageId == Guid.Empty) return false;
+
+        var recordsPage = _memoryManagerService.GetRecordsPageFromDisk(addressOfKeyToUpdate.pageId); 
+        var recordIndex = ((int)addressOfKeyToUpdate.offset - RecordsPageHeaderSizeInBytes) / _appSettings.RecordSizeInBytes;
+        recordsPage.Records[recordIndex] = new Record(x, y, keyToUpdate);
+        
+        _memoryManagerService.SavePageToFile(RecordsPageSerializer.Serialize(recordsPage), recordsPage.PageID, PageType.Records);
+        return true;
     }
 }
