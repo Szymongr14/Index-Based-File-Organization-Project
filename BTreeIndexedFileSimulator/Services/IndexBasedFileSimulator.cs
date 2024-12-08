@@ -36,6 +36,7 @@ public class IndexBasedFileSimulator
         ProcessInitialRecords();
         ProcessInstructions();
         _memoryManagerService.PrintIOSummary();
+        _bTreeDiskService.PrintBTree();
     }
     
     
@@ -86,32 +87,54 @@ public class IndexBasedFileSimulator
 
     private void InsertRecordAndUpdateBTree(Record record)
     {
-        if(FindRecord(record.Key) != null)
+        if (FindRecord(record.Key) != null)
         {
             _logger.LogError($"Record with key {record.Key} already exists.");
             return;
         }
-        
-        var (pageID, offset) = _memoryManagerService.GetFreeSpaceForRecord();
-        if (pageID == Guid.Empty)
+
+        if (_appSettings.EnableSpaceSaving)
         {
-            var page = new RecordsPage(Guid.NewGuid());
-            page.Records.Add(record);
-            _memoryManagerService.SavePageToFile(RecordsPageSerializer.Serialize(page), page.PageID, PageType.Records);
-            _bTreeDiskService.InsertRecord(record, page.PageID, RecordsPageHeaderSizeInBytes);
-            _memoryManagerService.AddFreeSpaceForRecord((page.PageID, RecordsPageHeaderSizeInBytes + (uint)_appSettings.RecordSizeInBytes));
+            var (pageID, offset) = _memoryManagerService.GetFreeSpaceForRecord();
+            if (pageID == Guid.Empty)
+            {
+                var page = new RecordsPage(Guid.NewGuid());
+                page.Records.Add(record);
+                _memoryManagerService.SavePageToFile(RecordsPageSerializer.Serialize(page), page.PageID, PageType.Records);
+                _bTreeDiskService.InsertRecord(record, page.PageID, RecordsPageHeaderSizeInBytes);
+                _memoryManagerService.AddFreeSpaceForRecord((page.PageID, RecordsPageHeaderSizeInBytes + (uint)_appSettings.RecordSizeInBytes));
+            }
+            else
+            {
+                var recordsPage = _memoryManagerService.GetRecordsPageFromDisk(pageID);
+                recordsPage.Records.Insert(((int)offset - RecordsPageHeaderSizeInBytes) / _appSettings.RecordSizeInBytes, record);
+                _memoryManagerService.SavePageToFile(RecordsPageSerializer.Serialize(recordsPage), recordsPage.PageID, PageType.Records);
+                _bTreeDiskService.InsertRecord(record, recordsPage.PageID, offset);
+                if (!IsPageFull(recordsPage))
+                {
+                    _memoryManagerService.AddFreeSpaceForRecord((recordsPage.PageID, offset + (uint)_appSettings.RecordSizeInBytes));
+                }
+            }
         }
         else
         {
-            var recordsPage = _memoryManagerService.GetRecordsPageFromDisk(pageID);
-            recordsPage.Records.Insert(((int)offset - RecordsPageHeaderSizeInBytes) / _appSettings.RecordSizeInBytes, record);
-            _memoryManagerService.SavePageToFile(RecordsPageSerializer.Serialize(recordsPage), recordsPage.PageID, PageType.Records);
-            _bTreeDiskService.InsertRecord(record, recordsPage.PageID, offset);
-            if (!IsPageFull(recordsPage))
+            var (pageID, offset) = _memoryManagerService.GetNextFreeSlot();
+            if (pageID == Guid.Empty)
             {
-                _memoryManagerService.AddFreeSpaceForRecord((recordsPage.PageID, offset + (uint)_appSettings.RecordSizeInBytes));
+                var page = new RecordsPage(Guid.NewGuid());
+                page.Records.Add(record);
+                _memoryManagerService.SavePageToFile(RecordsPageSerializer.Serialize(page), page.PageID, PageType.Records);
+                _bTreeDiskService.InsertRecord(record, page.PageID, RecordsPageHeaderSizeInBytes);
+                _memoryManagerService.SetNextFreeSlot((page.PageID, RecordsPageHeaderSizeInBytes + (uint)_appSettings.RecordSizeInBytes));
             }
-            
+            else
+            {
+                var recordsPage = _memoryManagerService.GetRecordsPageFromDisk(pageID);
+                recordsPage.Records.Add(record);
+                _memoryManagerService.SavePageToFile(RecordsPageSerializer.Serialize(recordsPage), recordsPage.PageID, PageType.Records);
+                _bTreeDiskService.InsertRecord(record, recordsPage.PageID, offset);
+                _memoryManagerService.SetNextFreeSlot((recordsPage.PageID, offset + (uint)_appSettings.RecordSizeInBytes));
+            }
         }
     }
     

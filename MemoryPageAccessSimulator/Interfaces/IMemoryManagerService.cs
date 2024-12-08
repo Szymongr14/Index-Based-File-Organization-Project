@@ -17,4 +17,6 @@ public interface IMemoryManagerService
     public void PrintIOStatistics();
     public void DeletePageFromDisk(Guid pageID);
     public void PrintIOSummary();
+    public (Guid pageID, uint offset) GetNextFreeSlot();
+    public void SetNextFreeSlot((Guid pageID, uint offset) nextFreeSlot);
 }

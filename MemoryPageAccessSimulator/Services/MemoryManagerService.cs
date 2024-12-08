@@ -110,4 +110,14 @@ public class MemoryManagerService : IMemoryManagerService
         var filePath = $"Disk/{pageID}.bin";
         File.Delete(filePath);
     }
+
+    public (Guid pageID, uint offset) GetNextFreeSlot()
+    {
+        return _ram.NextFreeSlot;
+    }
+
+    public void SetNextFreeSlot((Guid pageID, uint offset) nextFreeSlot)
+    {
+        _ram.NextFreeSlot = nextFreeSlot;
+    }
 }

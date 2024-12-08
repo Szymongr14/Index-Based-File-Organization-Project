@@ -13,4 +13,5 @@ public class AppSettings
    public int TreeDegree { get; init; }
    public bool EnableCaching { get; init; }
    public bool EnableNodeCompensation { get; init; }
+   public bool EnableSpaceSaving { get; init; }
 }

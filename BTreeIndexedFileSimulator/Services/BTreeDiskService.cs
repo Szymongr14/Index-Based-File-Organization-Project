@@ -258,8 +258,8 @@ public class BTreeDiskService : IBTreeDiskService
         }
         else
         {
-            parentKey = parentNode.Keys[childIndexInParent + 1];
-            parentAddress = parentNode.Addresses[childIndexInParent + 1];
+            parentKey = parentNode.Keys[childIndexInParent];
+            parentAddress = parentNode.Addresses[childIndexInParent];
         }
         rightSibling.Keys.Add(parentKey);
         rightSibling.Addresses.Add(parentAddress);
@@ -273,8 +273,8 @@ public class BTreeDiskService : IBTreeDiskService
         }
         else
         {
-            parentNode.Keys[childIndexInParent + 1] = movedKey;
-            parentNode.Addresses[childIndexInParent + 1] = currentNode.Addresses.Last();
+            parentNode.Keys[childIndexInParent] = movedKey;
+            parentNode.Addresses[childIndexInParent] = currentNode.Addresses.Last();
         }
 
         // Remove the moved key and address from the current node

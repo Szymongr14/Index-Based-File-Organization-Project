@@ -8,6 +8,7 @@ public class RAM
     public BTreeNodePage? BTreeRootPage { get; set; }
     private LinkedList<BTreeNodePage> _lruList = [];
     public Stack<(Guid PageID, uint Offset)> FreeSlots { get; set; } = new();
+    public (Guid PageID, uint Offset) NextFreeSlot { get; set; } = (Guid.Empty, 0);
 
     public RAM(AppSettings appSettings)
     {
