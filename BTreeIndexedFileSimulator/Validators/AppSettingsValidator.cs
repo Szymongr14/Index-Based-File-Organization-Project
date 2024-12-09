@@ -32,8 +32,5 @@ public class AppSettingsValidator : AbstractValidator<AppSettings>
         
         RuleFor(x => x.RecordSizeInBytes)
             .NotEmpty().GreaterThan(0).WithMessage("RecordSizeInBytes must be greater than 0.");
-        
-        RuleFor(x => x.LogLevel).NotEmpty().WithMessage("LogLevel is required.")
-            .Must(value => new[] { "Detailed", "Basic"}.Contains(value)).WithMessage("LogLevel must be one of: 'Detailed', 'Basic'.");
     }
 }
