@@ -419,6 +419,8 @@ public class BTreeDiskService : IBTreeDiskService
             if (!parentsStack.TryPop(out var parentAndIndex))
             {
                 if (node.Keys.Count != 0 || node.IsLeaf) return;
+
+                // Update root if the current root becomes empty
                 var newRootPageID = node.ChildPointers.First();
                 var newRoot = _memoryManagerService.GetBTreePageFromDisk(newRootPageID);
                 newRoot.IsRoot = true;
@@ -426,6 +428,8 @@ public class BTreeDiskService : IBTreeDiskService
                 _memoryManagerService.SavePageToFile(BTreeNodePageSerializer.Serialize(newRoot), newRoot.PageID, PageType.BTreeNode);
                 _memoryManagerService.SetRootPage(newRoot);
 
+                // Delete the old root node
+                _memoryManagerService.DeletePageFromDisk(node.PageID);
                 return;
             }
 
@@ -449,7 +453,7 @@ public class BTreeDiskService : IBTreeDiskService
                     leftSibling.ChildPointers.AddRange(node.ChildPointers);
                 }
 
-                // Remove the merged key from parent
+                // Remove the merged key from the parent
                 parentNode.Keys.RemoveAt(childIndexInParent - 1);
                 parentNode.Addresses.RemoveAt(childIndexInParent - 1);
                 parentNode.ChildPointers.RemoveAt(childIndexInParent);
@@ -457,6 +461,9 @@ public class BTreeDiskService : IBTreeDiskService
                 // Save updated nodes to disk
                 _memoryManagerService.SavePageToFile(BTreeNodePageSerializer.Serialize(leftSibling), leftSibling.PageID, PageType.BTreeNode);
                 _memoryManagerService.SavePageToFile(BTreeNodePageSerializer.Serialize(parentNode), parentNode.PageID, PageType.BTreeNode);
+
+                // Delete the current (merged) node from the disk
+                _memoryManagerService.DeletePageFromDisk(node.PageID);
 
                 if (parentNode.Keys.Count < Degree)
                 {
@@ -474,7 +481,7 @@ public class BTreeDiskService : IBTreeDiskService
                 node.Keys.Add(parentNode.Keys[childIndexInParent]);
                 node.Addresses.Add(parentNode.Addresses[childIndexInParent]);
 
-                // Move all keys and children from right sibling to current node
+                // Move all keys and children from right sibling to the current node
                 node.Keys.AddRange(rightSibling.Keys);
                 node.Addresses.AddRange(rightSibling.Addresses);
                 if (!rightSibling.IsLeaf)
@@ -482,7 +489,7 @@ public class BTreeDiskService : IBTreeDiskService
                     node.ChildPointers.AddRange(rightSibling.ChildPointers);
                 }
 
-                // Remove the merged key from parent
+                // Remove the merged key from the parent
                 parentNode.Keys.RemoveAt(childIndexInParent);
                 parentNode.Addresses.RemoveAt(childIndexInParent);
                 parentNode.ChildPointers.RemoveAt(childIndexInParent + 1);
@@ -490,6 +497,9 @@ public class BTreeDiskService : IBTreeDiskService
                 // Save updated nodes to disk
                 _memoryManagerService.SavePageToFile(BTreeNodePageSerializer.Serialize(node), node.PageID, PageType.BTreeNode);
                 _memoryManagerService.SavePageToFile(BTreeNodePageSerializer.Serialize(parentNode), parentNode.PageID, PageType.BTreeNode);
+
+                // Delete the right sibling (merged) node from the disk
+                _memoryManagerService.DeletePageFromDisk(rightSibling.PageID);
 
                 if (parentNode.Keys.Count < Degree)
                 {
@@ -501,6 +511,7 @@ public class BTreeDiskService : IBTreeDiskService
             break;
         }
     }
+
 
 
     private BTreeNodePage IterateToNodeWithSuccessorKey(BTreeNodePage node, Stack<(BTreeNodePage Node, int ChildIndex)> parentsStack, int childIndex)

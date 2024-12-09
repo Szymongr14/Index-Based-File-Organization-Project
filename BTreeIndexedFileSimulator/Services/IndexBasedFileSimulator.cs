@@ -133,7 +133,15 @@ public class IndexBasedFileSimulator
                 recordsPage.Records.Add(record);
                 _memoryManagerService.SavePageToFile(RecordsPageSerializer.Serialize(recordsPage), recordsPage.PageID, PageType.Records);
                 _bTreeDiskService.InsertRecord(record, recordsPage.PageID, offset);
-                _memoryManagerService.SetNextFreeSlot((recordsPage.PageID, offset + (uint)_appSettings.RecordSizeInBytes));
+                
+                if (recordsPage.Records.Count == _appSettings.PageSizeInNumberOfRecords)
+                {
+                    _memoryManagerService.SetNextFreeSlot((Guid.Empty, 0));
+                }
+                else
+                {
+                    _memoryManagerService.SetNextFreeSlot((recordsPage.PageID, offset + (uint)_appSettings.RecordSizeInBytes));
+                }
             }
         }
     }
@@ -187,7 +195,7 @@ public class IndexBasedFileSimulator
                 }
                 else
                 {
-                    _logger.LogError($"Key2 {keyToDelete} not found");
+                    _logger.LogError($"Key {keyToDelete} not found");
                 }
                 break;
 
@@ -198,7 +206,7 @@ public class IndexBasedFileSimulator
                 
                 if(_bTreeDiskService.FindAddressOfKey(Convert.ToUInt32(keyToUpdate)).pageId == Guid.Empty)
                 {
-                    _logger.LogError($"Key1 {keyToUpdate} not found");
+                    _logger.LogError($"Key {keyToUpdate} not found");
                     break;
                 }
                 
@@ -268,7 +276,7 @@ public class IndexBasedFileSimulator
                         Console.WriteLine($"ERROR: Previous Key {previousKey} > Current Key {record.Key}");
                     }
                     previousKey = record.Key;
-                    // Console.WriteLine($"Key: {record.Key}, X: {record.X}, Y: {record.Y}");
+                    Console.WriteLine($"Key: {record.Key}, X: {record.X}, Y: {record.Y}");
                 }
             }
             else if (index < node.ChildPointers.Count)
@@ -288,7 +296,7 @@ public class IndexBasedFileSimulator
                         Console.WriteLine($"ERROR: Previous Key {previousKey} > Current Key {record.Key}");
                     }
                     previousKey = record.Key;
-                    // Console.WriteLine($"Key: {record.Key}, X: {record.X}, Y: {record.Y}");
+                    Console.WriteLine($"Key: {record.Key}, X: {record.X}, Y: {record.Y}");
                 }
             }
         }
