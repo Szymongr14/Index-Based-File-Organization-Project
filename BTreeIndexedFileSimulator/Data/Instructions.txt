@@ -1,3 +1,0 @@
-insert 34.3 432.4 101
-find 101
-print
